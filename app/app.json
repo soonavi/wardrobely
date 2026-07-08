@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "wardrobeSpec",
+    "slug": "wardrobe-app",
+    "scheme": "wardrobespec",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF7F2"
+    },
+    "backgroundColor": "#FAF7F2",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wardrobe.app"
+    },
+    "android": {
+      "package": "com.wardrobe.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Wardrobe to access your photos so you can add garment images.",
+          "cameraPermission": "Allow Wardrobe to access your camera so you can photograph garments."
+        }
+      ]
+    ]
+  }
+}
