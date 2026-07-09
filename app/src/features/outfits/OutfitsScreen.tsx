@@ -74,7 +74,11 @@ export default function OutfitsScreen() {
   );
 
   async function handleOpenOutfit(outfit: OutfitWithItems) {
+    if (busyOutfitId) return;
+    setBusyOutfitId(outfit.id);
     const { data, error: fetchError } = await getOutfit(outfit.id);
+    setBusyOutfitId(null);
+
     if (fetchError || !data) {
       Alert.alert("Error", fetchError ?? "Could not load outfit.");
       return;
@@ -136,7 +140,14 @@ export default function OutfitsScreen() {
         <Text style={styles.title}>Outfits</Text>
       </View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <View style={styles.errorRow}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={loadOutfits} hitSlop={8}>
+            <Text style={styles.errorRetryText}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -144,9 +155,17 @@ export default function OutfitsScreen() {
         </View>
       ) : outfits.length === 0 ? (
         <View style={styles.centerFill}>
+          <Text style={styles.emptyTitle}>No saved outfits yet</Text>
           <Text style={styles.emptyText}>
-            No saved outfits yet. Build one in the Try-On studio.
+            Layer some garments onto your avatar in the Try-On studio, then
+            save the look to see it here.
           </Text>
+          <Pressable
+            style={styles.emptyCta}
+            onPress={() => router.push("/(tabs)/tryon" as const)}
+          >
+            <Text style={styles.emptyCtaText}>Go to Try-On studio</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -217,6 +236,12 @@ export default function OutfitsScreen() {
                   </Text>
                 </Pressable>
               </View>
+
+              {busyOutfitId === item.id && (
+                <View style={styles.cardBusyOverlay}>
+                  <ActivityIndicator color={colors.accent} />
+                </View>
+              )}
             </Pressable>
           )}
         />
@@ -344,15 +369,57 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 32,
   },
+  emptyTitle: {
+    fontFamily: type.title.fontFamily,
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.ink,
+    marginBottom: 6,
+    textAlign: "center",
+  },
   emptyText: {
     textAlign: "center",
     color: colors.muted,
     fontSize: 15,
   },
-  errorText: {
-    color: colors.danger,
+  emptyCta: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.ink,
+  },
+  emptyCtaText: {
+    color: colors.onInk,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  errorText: {
+    color: colors.danger,
+    flex: 1,
+  },
+  errorRetryText: {
+    color: colors.accent,
+    fontWeight: "700",
+    fontSize: 13,
+    marginLeft: 12,
+  },
+  cardBusyOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(250,247,242,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,

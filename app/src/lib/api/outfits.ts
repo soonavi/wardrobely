@@ -162,6 +162,73 @@ export async function deleteOutfit(
   return { error: error ? error.message : null };
 }
 
+/**
+ * Update an existing outfit's name and replace its items wholesale.
+ *
+ * Used to save changes back onto an outfit that was loaded into the
+ * try-on studio, instead of creating a duplicate outfit. Not currently
+ * called anywhere — the try-on studio always calls `createOutfit`, even
+ * when editing a loaded outfit (see PLAN.md "Known MVP limitation").
+ * Wiring this in requires the studio to pass `useTryOnStore`'s
+ * `outfitId` here when it's non-null; that's outside this file's scope.
+ */
+export async function updateOutfit(
+  outfitId: string,
+  name: string,
+  items: CreateOutfitItemInput[]
+): Promise<ApiResult<OutfitWithItems>> {
+  const { error: renameError } = await supabase
+    .from("outfits")
+    .update({ name })
+    .eq("id", outfitId);
+
+  if (renameError) {
+    return { data: null, error: renameError.message };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("outfit_items")
+    .delete()
+    .eq("outfit_id", outfitId);
+
+  if (deleteError) {
+    return { data: null, error: deleteError.message };
+  }
+
+  // outfit_items is keyed on (outfit_id, garment_id) — dedupe by garment,
+  // keeping the top-most layer, so the insert can't hit a PK conflict.
+  const dedupedItems = Array.from(
+    items
+      .slice()
+      .sort((a, b) => a.layer_order - b.layer_order)
+      .reduce(
+        (map, item) => map.set(item.garment_id, item),
+        new Map<string, CreateOutfitItemInput>()
+      )
+      .values()
+  );
+
+  if (dedupedItems.length > 0) {
+    const { error: itemsError } = await supabase.from("outfit_items").insert(
+      dedupedItems.map((item) => ({
+        outfit_id: outfitId,
+        garment_id: item.garment_id,
+        layer_order: item.layer_order,
+        x: item.x,
+        y: item.y,
+        scale: item.scale,
+        rotation: item.rotation,
+      }))
+    );
+
+    if (itemsError) {
+      return { data: null, error: itemsError.message };
+    }
+  }
+
+  return getOutfit(outfitId);
+}
+
 /** Rename an outfit. */
 export async function renameOutfit(
   outfitId: string,

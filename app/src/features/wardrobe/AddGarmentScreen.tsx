@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ export function AddGarmentScreen() {
   const userId = session?.user.id;
 
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
   const [category, setCategory] = useState<GarmentCategory>("top");
   const [name, setName] = useState("");
   const [color, setColor] = useState("");
@@ -32,13 +34,34 @@ export function AddGarmentScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function pickFromLibrary() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+  function handlePermissionDenied(
+    canAskAgain: boolean,
+    subject: "camera" | "photo library"
+  ) {
+    if (canAskAgain) {
       Alert.alert(
         "Permission needed",
-        "Allow photo library access to choose a garment image."
+        `Allow ${subject} access to add a garment photo.`
       );
+      return;
+    }
+    Alert.alert(
+      "Permission needed",
+      `${
+        subject === "camera" ? "Camera" : "Photo library"
+      } access is disabled. Enable it in Settings to add a garment photo.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => Linking.openSettings() },
+      ]
+    );
+  }
+
+  async function pickFromLibrary() {
+    if (saving) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      handlePermissionDenied(permission.canAskAgain, "photo library");
       return;
     }
 
@@ -52,16 +75,15 @@ export function AddGarmentScreen() {
 
     if (!result.canceled && result.assets.length > 0) {
       setImageUri(result.assets[0].uri);
+      setImageFailed(false);
     }
   }
 
   async function takePhoto() {
+    if (saving) return;
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Permission needed",
-        "Allow camera access to photograph a garment."
-      );
+      handlePermissionDenied(permission.canAskAgain, "camera");
       return;
     }
 
@@ -73,13 +95,19 @@ export function AddGarmentScreen() {
 
     if (!result.canceled && result.assets.length > 0) {
       setImageUri(result.assets[0].uri);
+      setImageFailed(false);
     }
   }
 
   async function handleSave() {
+    if (saving) return;
     if (!userId) return;
     if (!imageUri) {
       setError("Please add a photo first.");
+      return;
+    }
+    if (!category) {
+      setError("Please choose a category.");
       return;
     }
 
@@ -122,19 +150,35 @@ export function AddGarmentScreen() {
       <Text style={styles.title}>Add Garment</Text>
 
       <View style={styles.imageSection}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.preview} />
+        {imageUri && !imageFailed ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={styles.preview}
+            onError={() => setImageFailed(true)}
+          />
         ) : (
           <View style={[styles.preview, styles.previewPlaceholder]}>
-            <Text style={styles.placeholderText}>No image selected</Text>
+            <Text style={styles.placeholderText}>
+              {imageFailed
+                ? "Couldn't load that image. Please pick another."
+                : "No image selected"}
+            </Text>
           </View>
         )}
 
         <View style={styles.imageButtonsRow}>
-          <Pressable style={styles.secondaryButton} onPress={takePhoto}>
+          <Pressable
+            style={[styles.secondaryButton, saving && styles.buttonDisabled]}
+            onPress={takePhoto}
+            disabled={saving}
+          >
             <Text style={styles.secondaryButtonText}>Take Photo</Text>
           </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={pickFromLibrary}>
+          <Pressable
+            style={[styles.secondaryButton, saving && styles.buttonDisabled]}
+            onPress={pickFromLibrary}
+            disabled={saving}
+          >
             <Text style={styles.secondaryButtonText}>Choose from Gallery</Text>
           </Pressable>
         </View>
@@ -202,7 +246,9 @@ export function AddGarmentScreen() {
         {saving ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.saveButtonText}>Save Garment</Text>
+          <Text style={styles.saveButtonText}>
+            {error ? "Retry Save" : "Save Garment"}
+          </Text>
         )}
       </Pressable>
     </ScrollView>
@@ -257,6 +303,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: colors.ink,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   label: {
     ...type.label,

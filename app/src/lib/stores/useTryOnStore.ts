@@ -6,6 +6,8 @@ export interface TryOnLayer {
   id: string;
   garmentId: string;
   imageUrl: string;
+  /** True when the last attempt to resolve imageUrl for this layer failed. */
+  imageError?: boolean;
   x: number;
   y: number;
   scale: number;
@@ -112,6 +114,7 @@ export const useTryOnStore = create<TryOnState>((set, get) => ({
           id: generateLayerId(),
           garmentId: item.garment_id,
           imageUrl: "",
+          imageError: false,
           x: item.x,
           y: item.y,
           scale: item.scale,

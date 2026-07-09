@@ -10,10 +10,15 @@ import type { TryOnLayer } from "../../lib/stores/useTryOnStore";
 import { colors } from "../../lib/theme";
 
 const LAYER_BASE_SIZE = 140;
+const MIN_SCALE = 0.3;
+const MAX_SCALE = 4;
 
 export interface GarmentLayerProps {
   layer: TryOnLayer;
   isSelected: boolean;
+  /** Stage bounds (canvas px) the layer's center point is clamped within, so it can never be dragged fully off-stage. */
+  stageWidth: number;
+  stageHeight: number;
   onSelect: () => void;
   onChange: (updates: {
     x: number;
@@ -23,6 +28,10 @@ export interface GarmentLayerProps {
   }) => void;
   onRemove: () => void;
   onBringToFront: () => void;
+  /** Retry resolving the garment image after a failed load. */
+  onRetryImage: () => void;
+  /** Called when the resolved image URL fails to actually load (e.g. expired signed URL). */
+  onImageLoadError: () => void;
 }
 
 /**
@@ -34,10 +43,14 @@ export interface GarmentLayerProps {
 export function GarmentLayer({
   layer,
   isSelected,
+  stageWidth,
+  stageHeight,
   onSelect,
   onChange,
   onRemove,
   onBringToFront,
+  onRetryImage,
+  onImageLoadError,
 }: GarmentLayerProps) {
   const translateX = useSharedValue(layer.x);
   const translateY = useSharedValue(layer.y);
@@ -66,14 +79,30 @@ export function GarmentLayer({
     onChange({ x, y, scale: s, rotation: r });
   }
 
+  /**
+   * Selects this layer and brings it to front as soon as the user starts
+   * interacting with it, so whichever garment they're touching is always
+   * on top and its remove affordance is visible.
+   */
+  function activateFromJS() {
+    onSelect();
+    onBringToFront();
+  }
+
   const panGesture = Gesture.Pan()
     .onStart(() => {
       startX.value = translateX.value;
       startY.value = translateY.value;
+      runOnJS(activateFromJS)();
     })
     .onUpdate((event) => {
-      translateX.value = startX.value + event.translationX;
-      translateY.value = startY.value + event.translationY;
+      // Clamp so the layer's center point can never leave the stage —
+      // otherwise a user could drag a garment fully off-screen with no
+      // way to select and recover it.
+      const nextX = startX.value + event.translationX;
+      const nextY = startY.value + event.translationY;
+      translateX.value = Math.min(Math.max(nextX, 0), stageWidth);
+      translateY.value = Math.min(Math.max(nextY, 0), stageHeight);
     })
     .onEnd(() => {
       runOnJS(commitFromJS)(
@@ -87,10 +116,11 @@ export function GarmentLayer({
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
       startScale.value = scale.value;
+      runOnJS(activateFromJS)();
     })
     .onUpdate((event) => {
       const next = startScale.value * event.scale;
-      scale.value = Math.min(Math.max(next, 0.2), 4);
+      scale.value = Math.min(Math.max(next, MIN_SCALE), MAX_SCALE);
     })
     .onEnd(() => {
       runOnJS(commitFromJS)(
@@ -104,6 +134,7 @@ export function GarmentLayer({
   const rotationGesture = Gesture.Rotation()
     .onStart(() => {
       startRotation.value = rotation.value;
+      runOnJS(activateFromJS)();
     })
     .onUpdate((event) => {
       rotation.value = startRotation.value + event.rotation;
@@ -118,7 +149,7 @@ export function GarmentLayer({
     });
 
   const tapGesture = Gesture.Tap().onEnd(() => {
-    runOnJS(onSelect)();
+    runOnJS(activateFromJS)();
   });
 
   const composedGesture = Gesture.Simultaneous(
@@ -135,27 +166,34 @@ export function GarmentLayer({
     ],
   }));
 
+  const showBroken = !layer.imageUrl || layer.imageError;
+
   return (
     <GestureDetector gesture={composedGesture}>
-      <Animated.View
-        style={[styles.layer, animatedStyle]}
-        onTouchEnd={() => {
-          if (isSelected) {
-            onBringToFront();
-          }
-        }}
-      >
+      <Animated.View style={[styles.layer, animatedStyle]}>
         <View
           style={[
             styles.imageWrap,
             isSelected && styles.imageWrapSelected,
           ]}
         >
-          <Image
-            source={{ uri: layer.imageUrl }}
-            style={styles.image}
-            resizeMode="contain"
-          />
+          {showBroken ? (
+            <Pressable style={styles.brokenWrap} onPress={onRetryImage}>
+              <Text style={styles.brokenText}>
+                {layer.imageError ? "Failed to load" : "Loading…"}
+              </Text>
+              {layer.imageError && (
+                <Text style={styles.brokenRetryText}>Tap to retry</Text>
+              )}
+            </Pressable>
+          ) : (
+            <Image
+              source={{ uri: layer.imageUrl }}
+              style={styles.image}
+              resizeMode="contain"
+              onError={onImageLoadError}
+            />
+          )}
         </View>
         {isSelected && (
           <Pressable
@@ -192,6 +230,27 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+  brokenWrap: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 8,
+    padding: 6,
+  },
+  brokenText: {
+    fontSize: 11,
+    color: colors.muted,
+    textAlign: "center",
+  },
+  brokenRetryText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.accent,
+    textAlign: "center",
+    marginTop: 2,
   },
   removeButton: {
     position: "absolute",

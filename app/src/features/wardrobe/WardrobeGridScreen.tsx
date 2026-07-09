@@ -7,6 +7,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -27,9 +28,13 @@ export function WardrobeGridScreen() {
   const [garments, setGarments] = useState<GarmentRow[]>([]);
   const [selectedCategory, setSelectedCategory] =
     useState<GarmentCategory | null>(null);
+  const [tagFilter, setTagFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+  const trimmedTagFilter = tagFilter.trim();
 
   const loadGarments = useCallback(
     async (isRefresh = false) => {
@@ -43,6 +48,7 @@ export function WardrobeGridScreen() {
 
       const { data, error: fetchError } = await listGarments(userId, {
         category: selectedCategory ?? undefined,
+        tag: trimmedTagFilter || undefined,
       });
 
       if (fetchError) {
@@ -53,9 +59,17 @@ export function WardrobeGridScreen() {
 
       setLoading(false);
       setRefreshing(false);
+      setHasLoadedOnce(true);
     },
-    [userId, selectedCategory]
+    [userId, selectedCategory, trimmedTagFilter]
   );
+
+  const filtersActive = selectedCategory !== null || trimmedTagFilter.length > 0;
+
+  const clearFilters = useCallback(() => {
+    setSelectedCategory(null);
+    setTagFilter("");
+  }, []);
 
   // loadGarments' identity changes with selectedCategory, so this single
   // focus effect covers both screen focus and filter changes (a separate
@@ -84,7 +98,34 @@ export function WardrobeGridScreen() {
         onSelect={setSelectedCategory}
       />
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      <View style={styles.tagFilterRow}>
+        <TextInput
+          style={styles.tagFilterInput}
+          value={tagFilter}
+          onChangeText={setTagFilter}
+          onSubmitEditing={() => loadGarments()}
+          placeholder="Filter by tag…"
+          placeholderTextColor={colors.faint}
+          returnKeyType="search"
+        />
+        {filtersActive && (
+          <Pressable
+            style={styles.clearFiltersButton}
+            onPress={clearFilters}
+          >
+            <Text style={styles.clearFiltersText}>Clear</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {error && (
+        <View style={styles.errorRow}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => loadGarments()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -92,9 +133,29 @@ export function WardrobeGridScreen() {
         </View>
       ) : garments.length === 0 ? (
         <View style={styles.centerFill}>
-          <Text style={styles.emptyText}>
-            No garments yet. Tap + to add your first item.
-          </Text>
+          {hasLoadedOnce && filtersActive ? (
+            <>
+              <Text style={styles.emptyText}>
+                No garments match these filters.
+              </Text>
+              <Pressable style={styles.emptyCta} onPress={clearFilters}>
+                <Text style={styles.emptyCtaText}>Clear filters</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.emptyText}>
+                No garments yet. Add your first item to start building your
+                wardrobe.
+              </Text>
+              <Pressable
+                style={styles.emptyCta}
+                onPress={() => router.push("/add-garment")}
+              >
+                <Text style={styles.emptyCtaText}>+ Add a garment</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       ) : (
         <FlatList
@@ -163,13 +224,25 @@ function GarmentCard({
   onPress: () => void;
 }) {
   const { url } = useSignedImageUrl(garment.image_path);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  const showImage = url && !imageFailed;
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      {url ? (
-        <Image source={{ uri: url }} style={styles.cardImage} resizeMode="cover" />
+      {showImage ? (
+        <Image
+          source={{ uri: url }}
+          style={styles.cardImage}
+          resizeMode="cover"
+          onError={() => setImageFailed(true)}
+        />
       ) : (
-        <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
+        <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+          {imageFailed && (
+            <Text style={styles.cardImageErrorText}>Image unavailable</Text>
+          )}
+        </View>
       )}
       <Text style={styles.cardTitle} numberOfLines={1}>
         {garment.name || garment.category}
@@ -215,6 +288,33 @@ const styles = StyleSheet.create({
   chipsRow: {
     paddingVertical: 8,
   },
+  tagFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 4,
+  },
+  tagFilterInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  clearFiltersButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.accent,
+  },
   chipsContainer: {
     paddingHorizontal: 16,
   },
@@ -258,6 +358,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cardImageErrorText: {
+    fontSize: 11,
+    color: colors.faint,
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
   cardTitle: {
     fontSize: 14,
     fontWeight: "600",
@@ -281,9 +387,32 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 15,
   },
-  errorText: {
-    color: colors.danger,
+  emptyCta: {
+    marginTop: 16,
+    backgroundColor: colors.ink,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+  },
+  emptyCtaText: {
+    color: colors.onInk,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  errorText: {
+    color: colors.danger,
+    flexShrink: 1,
+  },
+  retryText: {
+    color: colors.accent,
+    fontWeight: "700",
+    marginLeft: 12,
   },
 });

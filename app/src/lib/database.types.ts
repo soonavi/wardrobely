@@ -25,7 +25,7 @@ export type GarmentCategory =
   | "shoes"
   | "accessory";
 
-export interface ProfileRow {
+export type ProfileRow = {
   id: string;
   display_name: string | null;
   body_type: BodyType | null;
@@ -33,9 +33,9 @@ export interface ProfileRow {
   weight_kg: number | null;
   build: Build | null;
   created_at: string;
-}
+};
 
-export interface GarmentRow {
+export type GarmentRow = {
   id: string;
   user_id: string;
   image_path: string;
@@ -45,16 +45,16 @@ export interface GarmentRow {
   brand: string | null;
   tags: string[];
   created_at: string;
-}
+};
 
-export interface OutfitRow {
+export type OutfitRow = {
   id: string;
   user_id: string;
   name: string | null;
   created_at: string;
-}
+};
 
-export interface OutfitItemRow {
+export type OutfitItemRow = {
   outfit_id: string;
   garment_id: string;
   layer_order: number;
@@ -62,15 +62,16 @@ export interface OutfitItemRow {
   y: number;
   scale: number;
   rotation: number;
-}
+};
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       profiles: {
         Row: ProfileRow;
         Insert: Partial<ProfileRow> & { id: string };
         Update: Partial<ProfileRow>;
+        Relationships: [];
       };
       garments: {
         Row: GarmentRow;
@@ -80,11 +81,13 @@ export interface Database {
           category: GarmentCategory;
         };
         Update: Partial<GarmentRow>;
+        Relationships: [];
       };
       outfits: {
         Row: OutfitRow;
         Insert: Partial<OutfitRow> & { user_id: string };
         Update: Partial<OutfitRow>;
+        Relationships: [];
       };
       outfit_items: {
         Row: OutfitItemRow;
@@ -93,7 +96,12 @@ export interface Database {
           garment_id: string;
         };
         Update: Partial<OutfitItemRow>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
-}
+};

@@ -81,11 +81,15 @@ export function ProfileScreen() {
     setEditing(true);
   }
 
-  /** Parse inputs (height in cm or total inches; weight in kg or lbs). */
+  /** Parse inputs (height in cm or total inches; weight in kg or lbs). Rejects anything but whole-number digits. */
   function parseMetrics(): { height_cm: number; weight_kg: number } | null {
-    const h = parseInt(heightInput, 10);
-    const w = parseInt(weightInput, 10);
-    if (isNaN(h) || isNaN(w)) return null;
+    const heightTrimmed = heightInput.trim();
+    const weightTrimmed = weightInput.trim();
+    if (!/^\d+$/.test(heightTrimmed) || !/^\d+$/.test(weightTrimmed)) {
+      return null;
+    }
+    const h = parseInt(heightTrimmed, 10);
+    const w = parseInt(weightTrimmed, 10);
     if (units === "metric") return { height_cm: h, weight_kg: w };
     return {
       height_cm: Math.round(h * 2.54),
@@ -93,10 +97,48 @@ export function ProfileScreen() {
     };
   }
 
+  /** Convert whatever is currently typed into the other unit system so edits survive a unit toggle. */
+  function convertInputsToUnits(nextUnits: Units) {
+    if (nextUnits === units) return;
+
+    const h = parseInt(heightInput, 10);
+    if (!isNaN(h)) {
+      setHeightInput(
+        String(
+          nextUnits === "metric"
+            ? Math.round(h * 2.54)
+            : Math.round(h / 2.54)
+        )
+      );
+    }
+
+    const w = parseInt(weightInput, 10);
+    if (!isNaN(w)) {
+      setWeightInput(
+        String(
+          nextUnits === "metric"
+            ? Math.round(w * 0.453592)
+            : Math.round(w / 0.453592)
+        )
+      );
+    }
+  }
+
+  function handleUnitsChange(nextUnits: Units) {
+    if (editing) {
+      convertInputsToUnits(nextUnits);
+    }
+    setUnits(nextUnits);
+  }
+
   async function saveMetrics(overrides?: { build?: Build }) {
-    if (!userId || !profile) return;
+    if (!userId || !profile || saving) return;
 
     const parsed = editing ? parseMetrics() : null;
+    if (editing && !parsed) {
+      setError("Height and weight must be whole numbers.");
+      return;
+    }
     const height_cm = parsed?.height_cm ?? profile.height_cm;
     const weight_kg = parsed?.weight_kg ?? profile.weight_kg;
     const build = overrides?.build ?? profile.build;
@@ -178,10 +220,7 @@ export function ProfileScreen() {
                 <Pressable
                   key={u}
                   style={[styles.unitButton, active && styles.unitButtonActive]}
-                  onPress={() => {
-                    setUnits(u);
-                    setEditing(false);
-                  }}
+                  onPress={() => handleUnitsChange(u)}
                 >
                   <Text
                     style={[styles.unitText, active && styles.unitTextActive]}
@@ -265,7 +304,7 @@ export function ProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>General build</Text>
-        <View style={styles.pickerWrapper}>
+        <View style={styles.pickerWrapper} pointerEvents={saving ? "none" : "auto"}>
           <BuildPicker
             value={profile?.build ?? null}
             onChange={(build) => saveMetrics({ build })}

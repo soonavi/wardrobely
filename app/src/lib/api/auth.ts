@@ -7,6 +7,31 @@ export interface AuthResult {
 }
 
 /**
+ * Map raw Supabase auth errors to copy that makes sense in an OTP flow.
+ * Supabase's own messages are written with password auth in mind (or are
+ * terse network errors), so we rewrite the common ones here.
+ */
+function friendlyAuthError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("token has expired") || lower.includes("otp_expired")) {
+    return "That code has expired. Request a new one and try again.";
+  }
+  if (lower.includes("invalid") && lower.includes("otp")) {
+    return "That code isn't right. Double-check it and try again.";
+  }
+  if (lower.includes("invalid") && lower.includes("token")) {
+    return "That code isn't right. Double-check it and try again.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "Too many attempts. Please wait a moment before trying again.";
+  }
+  if (lower.includes("network") || lower.includes("fetch")) {
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  return message;
+}
+
+/**
  * Send a one-time-password code to the given email. If the user doesn't
  * exist yet, Supabase creates the account (shouldCreateUser: true) so the
  * same flow covers both sign-up and sign-in.
@@ -21,7 +46,7 @@ export async function signInWithOtp(
     },
   });
 
-  return { error: error ? error.message : null };
+  return { error: error ? friendlyAuthError(error.message) : null };
 }
 
 /** Verify the 6-digit OTP code sent to the user's email. */
@@ -36,45 +61,7 @@ export async function verifyOtp(
   });
 
   if (error) {
-    return { session: null, error: error.message };
-  }
-
-  return { session: data.session, error: null };
-}
-
-/**
- * Create a new account with email + password.
- * Supabase will also send a confirmation email if email confirmations
- * are enabled on the project; the session may be null until confirmed.
- */
-export async function signUp(
-  email: string,
-  password: string
-): Promise<AuthResult> {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-  if (error) {
-    return { session: null, error: error.message };
-  }
-
-  return { session: data.session, error: null };
-}
-
-/** Sign in with an existing email + password account. */
-export async function signIn(
-  email: string,
-  password: string
-): Promise<AuthResult> {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) {
-    return { session: null, error: error.message };
+    return { session: null, error: friendlyAuthError(error.message) };
   }
 
   return { session: data.session, error: null };

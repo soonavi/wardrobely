@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listGarments } from "../../lib/api/garments";
-import { createOutfit } from "../../lib/api/outfits";
+import { createOutfit, updateOutfit } from "../../lib/api/outfits";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import { useTryOnStore } from "../../lib/stores/useTryOnStore";
 import type { GarmentRow } from "../../lib/database.types";
@@ -39,6 +39,7 @@ export default function TryOnStudioScreen() {
 
   const layers = useTryOnStore((s) => s.layers);
   const selectedLayerId = useTryOnStore((s) => s.selectedLayerId);
+  const outfitId = useTryOnStore((s) => s.outfitId);
   const outfitName = useTryOnStore((s) => s.outfitName);
   const addLayer = useTryOnStore((s) => s.addLayer);
   const updateLayer = useTryOnStore((s) => s.updateLayer);
@@ -46,21 +47,33 @@ export default function TryOnStudioScreen() {
   const bringToFront = useTryOnStore((s) => s.bringToFront);
   const selectLayer = useTryOnStore((s) => s.selectLayer);
 
+  const MAX_OUTFIT_NAME_LENGTH = 60;
+
   const [garments, setGarments] = useState<GarmentRow[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [loadingGarments, setLoadingGarments] = useState(true);
+  const [garmentsError, setGarmentsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [nameInput, setNameInput] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Tracks whether the garments list has ever loaded successfully, so a
+  // background refetch on refocus doesn't yank the list away behind a
+  // spinner while the user is looking at it.
+  const hasLoadedOnceRef = useRef(false);
 
   const loadGarments = useCallback(async () => {
     if (!userId) return;
-    setLoadingGarments(true);
+    if (!hasLoadedOnceRef.current) {
+      setLoadingGarments(true);
+    }
+    setGarmentsError(null);
     const { data, error: fetchError } = await listGarments(userId);
     if (fetchError) {
-      setError(fetchError);
+      setGarmentsError(fetchError);
     } else {
+      hasLoadedOnceRef.current = true;
       const rows = data ?? [];
       setGarments(rows);
       const urls = await getSignedGarmentImageUrls(rows.map((g) => g.image_path));
@@ -75,27 +88,34 @@ export default function TryOnStudioScreen() {
     }, [loadGarments])
   );
 
+  const resolveLayerImage = useCallback(
+    async (layer: (typeof layers)[number]) => {
+      const garment = garments.find((g) => g.id === layer.garmentId);
+      if (!garment) return;
+      const url = await getSignedGarmentImageUrl(garment.image_path);
+      if (url) {
+        updateLayer(layer.id, { imageUrl: url, imageError: false });
+      } else {
+        updateLayer(layer.id, { imageError: true });
+      }
+    },
+    [garments, updateLayer]
+  );
+
   // Resolve image URLs for layers loaded from a saved outfit (loadFromOutfit
   // sets imageUrl to "" since the store has no async access to storage).
   useEffect(() => {
-    const missing = layers.filter((l) => !l.imageUrl);
+    const missing = layers.filter((l) => !l.imageUrl && !l.imageError);
     if (missing.length === 0) return;
 
     (async () => {
       for (const layer of missing) {
-        const garment = garments.find((g) => g.id === layer.garmentId);
-        if (!garment) continue;
-        const url = await getSignedGarmentImageUrl(garment.image_path);
-        if (url) {
-          updateLayer(layer.id, { imageUrl: url });
-        }
+        await resolveLayerImage(layer);
       }
     })();
-  }, [layers, garments]);
+  }, [layers, garments, resolveLayerImage]);
 
   function handleAddGarment(garment: GarmentRow) {
-    const url = thumbUrls[garment.image_path];
-    if (!url) return;
     // outfit_items is keyed on (outfit_id, garment_id), so the same garment
     // can only appear once per outfit — block duplicate layers up front.
     if (layers.some((l) => l.garmentId === garment.id)) {
@@ -105,15 +125,42 @@ export default function TryOnStudioScreen() {
       );
       return;
     }
+
     const anchor = ANCHOR_ZONES[garment.category];
-    addLayer({
-      garmentId: garment.id,
-      imageUrl: url,
-      x: anchor.x,
-      y: anchor.y,
-      scale: anchor.scale,
-      rotation: 0,
-    });
+    const existingUrl = thumbUrls[garment.image_path];
+    if (existingUrl) {
+      addLayer({
+        garmentId: garment.id,
+        imageUrl: existingUrl,
+        x: anchor.x,
+        y: anchor.y,
+        scale: anchor.scale,
+        rotation: 0,
+      });
+      return;
+    }
+
+    // Thumbnail failed to load earlier — retry the signed URL on demand
+    // rather than silently doing nothing when tapped.
+    (async () => {
+      const url = await getSignedGarmentImageUrl(garment.image_path);
+      if (!url) {
+        Alert.alert(
+          "Couldn't load image",
+          "This garment's photo couldn't be loaded. Check your connection and try again."
+        );
+        return;
+      }
+      setThumbUrls((prev) => ({ ...prev, [garment.image_path]: url }));
+      addLayer({
+        garmentId: garment.id,
+        imageUrl: url,
+        x: anchor.x,
+        y: anchor.y,
+        scale: anchor.scale,
+        rotation: 0,
+      });
+    })();
   }
 
   function openSaveModal() {
@@ -121,44 +168,59 @@ export default function TryOnStudioScreen() {
       Alert.alert("Add a garment", "Add at least one item before saving.");
       return;
     }
+    setSaveError(null);
     setNameInput(outfitName ?? "");
     setSaveModalVisible(true);
   }
 
+  function closeSaveModal() {
+    if (saving) return;
+    setSaveModalVisible(false);
+  }
+
   async function handleSaveOutfit() {
-    if (!userId) return;
+    if (!userId || saving) return;
     const trimmedName = nameInput.trim();
     if (!trimmedName) {
-      setError("Please enter a name for this outfit.");
+      setSaveError("Please enter a name for this outfit.");
+      return;
+    }
+    if (trimmedName.length > MAX_OUTFIT_NAME_LENGTH) {
+      setSaveError(`Name must be ${MAX_OUTFIT_NAME_LENGTH} characters or fewer.`);
       return;
     }
 
     setSaving(true);
-    setError(null);
+    setSaveError(null);
 
-    const { data, error: createError } = await createOutfit(
-      userId,
-      trimmedName,
-      layers.map((layer) => ({
-        garment_id: layer.garmentId,
-        layer_order: layer.layerOrder,
-        x: layer.x,
-        y: layer.y,
-        scale: layer.scale,
-        rotation: layer.rotation,
-      }))
-    );
+    const items = layers.map((layer) => ({
+      garment_id: layer.garmentId,
+      layer_order: layer.layerOrder,
+      x: layer.x,
+      y: layer.y,
+      scale: layer.scale,
+      rotation: layer.rotation,
+    }));
+
+    const { data, error: saveErrorMsg } = outfitId
+      ? await updateOutfit(outfitId, trimmedName, items)
+      : await createOutfit(userId, trimmedName, items);
 
     setSaving(false);
 
-    if (createError) {
-      setError(createError);
+    if (saveErrorMsg) {
+      setSaveError(saveErrorMsg);
       return;
     }
 
     if (data) {
       setSaveModalVisible(false);
-      Alert.alert("Saved", `"${trimmedName}" was saved to your outfits.`);
+      Alert.alert(
+        "Saved",
+        outfitId
+          ? `"${trimmedName}" was updated.`
+          : `"${trimmedName}" was saved to your outfits.`
+      );
     }
   }
 
@@ -176,26 +238,36 @@ export default function TryOnStudioScreen() {
               while the avatar floats centered would misalign them.
             */}
             <View style={styles.stage} pointerEvents="box-none">
-              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={() => selectLayer(null)}
+                accessibilityLabel="Deselect garment layer"
+              >
                 <AvatarSvg
                   build={build}
                   widthScale={widthScale}
                   width={AVATAR_WIDTH}
                   height={AVATAR_HEIGHT}
                 />
-              </View>
+              </Pressable>
 
               {sortedLayers.map((layer) => (
                 <GarmentLayer
                   key={layer.id}
                   layer={scaleLayerToCanvas(layer)}
                   isSelected={layer.id === selectedLayerId}
+                  stageWidth={AVATAR_WIDTH}
+                  stageHeight={AVATAR_HEIGHT}
                   onSelect={() => selectLayer(layer.id)}
                   onChange={(updates) =>
                     updateLayer(layer.id, unscaleLayerFromCanvas(updates))
                   }
                   onRemove={() => removeLayer(layer.id)}
                   onBringToFront={() => bringToFront(layer.id)}
+                  onRetryImage={() => resolveLayerImage(layer)}
+                  onImageLoadError={() =>
+                    updateLayer(layer.id, { imageError: true })
+                  }
                 />
               ))}
             </View>
@@ -206,11 +278,26 @@ export default function TryOnStudioScreen() {
           </Pressable>
         </View>
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
-
         <View style={styles.drawer}>
           <Text style={styles.drawerTitle}>Your garments</Text>
-          {loadingGarments ? (
+          {garmentsError && garments.length > 0 && (
+            <View style={styles.drawerError}>
+              <Text style={styles.errorText} numberOfLines={1}>
+                {garmentsError}
+              </Text>
+              <Pressable style={styles.retryButton} onPress={loadGarments}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </Pressable>
+            </View>
+          )}
+          {garmentsError && garments.length === 0 ? (
+            <View style={styles.drawerError}>
+              <Text style={styles.errorText}>{garmentsError}</Text>
+              <Pressable style={styles.retryButton} onPress={loadGarments}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </Pressable>
+            </View>
+          ) : loadingGarments ? (
             <ActivityIndicator style={styles.drawerLoading} />
           ) : garments.length === 0 ? (
             <Text style={styles.drawerEmpty}>
@@ -223,27 +310,38 @@ export default function TryOnStudioScreen() {
               keyExtractor={(item) => item.id}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.drawerList}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.drawerItem}
-                  onPress={() => handleAddGarment(item)}
-                >
-                  {thumbUrls[item.image_path] ? (
-                    <Image
-                      source={{ uri: thumbUrls[item.image_path] }}
-                      style={styles.drawerItemImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View
-                      style={[styles.drawerItemImage, styles.drawerItemPlaceholder]}
-                    />
-                  )}
-                  <Text style={styles.drawerItemLabel} numberOfLines={1}>
-                    {item.name || item.category}
-                  </Text>
-                </Pressable>
-              )}
+              renderItem={({ item }) => {
+                const alreadyAdded = layers.some((l) => l.garmentId === item.id);
+                const imageFailed = !loadingGarments && !thumbUrls[item.image_path];
+                return (
+                  <Pressable
+                    style={[styles.drawerItem, alreadyAdded && styles.drawerItemAdded]}
+                    onPress={() => handleAddGarment(item)}
+                  >
+                    {thumbUrls[item.image_path] ? (
+                      <Image
+                        source={{ uri: thumbUrls[item.image_path] }}
+                        style={styles.drawerItemImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[styles.drawerItemImage, styles.drawerItemPlaceholder]}
+                      >
+                        {imageFailed && (
+                          <Text style={styles.drawerItemRetryText}>Retry</Text>
+                        )}
+                      </View>
+                    )}
+                    <Text style={styles.drawerItemLabel} numberOfLines={1}>
+                      {item.name || item.category}
+                    </Text>
+                    {alreadyAdded && (
+                      <Text style={styles.drawerItemAddedLabel}>Added</Text>
+                    )}
+                  </Pressable>
+                );
+              }}
             />
           )}
         </View>
@@ -253,7 +351,7 @@ export default function TryOnStudioScreen() {
         visible={saveModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setSaveModalVisible(false)}
+        onRequestClose={closeSaveModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -261,21 +359,28 @@ export default function TryOnStudioScreen() {
             <TextInput
               style={styles.modalInput}
               value={nameInput}
-              onChangeText={setNameInput}
+              onChangeText={(text) => {
+                setNameInput(text);
+                if (saveError) setSaveError(null);
+              }}
               placeholder="e.g. Friday dinner"
               autoFocus
+              maxLength={MAX_OUTFIT_NAME_LENGTH}
+              editable={!saving}
+              returnKeyType="done"
+              onSubmitEditing={handleSaveOutfit}
             />
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {saveError && <Text style={styles.errorText}>{saveError}</Text>}
             <View style={styles.modalButtonsRow}>
               <Pressable
                 style={styles.modalCancelButton}
-                onPress={() => setSaveModalVisible(false)}
+                onPress={closeSaveModal}
                 disabled={saving}
               >
                 <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={styles.modalSaveButton}
+                style={[styles.modalSaveButton, saving && styles.modalSaveButtonDisabled]}
                 onPress={handleSaveOutfit}
                 disabled={saving}
               >
@@ -365,6 +470,7 @@ const styles = StyleSheet.create({
     color: colors.danger,
     paddingHorizontal: 16,
     paddingVertical: 4,
+    flexShrink: 1,
   },
   drawer: {
     flex: 0.25,
@@ -405,12 +511,46 @@ const styles = StyleSheet.create({
   },
   drawerItemPlaceholder: {
     backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerItemRetryText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.accent,
+  },
+  drawerItemAdded: {
+    opacity: 0.55,
+  },
+  drawerItemAddedLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.accent,
+    marginTop: 1,
   },
   drawerItemLabel: {
     fontSize: 11,
     color: colors.muted,
     marginTop: 4,
     textAlign: "center",
+  },
+  drawerError: {
+    marginHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  retryButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.ink,
+  },
+  retryButtonText: {
+    color: colors.onInk,
+    fontWeight: "700",
+    fontSize: 12,
   },
   modalOverlay: {
     flex: 1,
@@ -464,6 +604,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.ink,
     alignItems: "center",
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.6,
   },
   modalSaveButtonText: {
     fontWeight: "700",

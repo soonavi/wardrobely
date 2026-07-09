@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +20,11 @@ import type { Build } from "../../lib/database.types";
 import { colors, radius, spacing, type } from "../../lib/theme";
 
 type Units = "imperial" | "metric";
+
+/** Strip anything but digits so pasted/typed input can't produce NaN. */
+function digitsOnly(value: string): string {
+  return value.replace(/[^0-9]/g, "");
+}
 
 /**
  * First-run onboarding: height + weight (imperial/metric toggle) and a
@@ -63,6 +70,11 @@ export function OnboardingScreen() {
   const widthScale = buildWidthScale(metrics?.height_cm, metrics?.weight_kg);
   const canContinue = metrics !== null && build !== null && !saving;
 
+  // Clear a stale validation message as soon as the user edits the form.
+  useEffect(() => {
+    setError(null);
+  }, [units, feet, inches, pounds, centimeters, kilograms, build]);
+
   async function handleContinue() {
     if (!userId || !metrics || !build) return;
 
@@ -100,120 +112,138 @@ export function OnboardingScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 32 }]}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <Text style={styles.brand}>
-        wardrobe<Text style={styles.brandAccent}>Spec</Text>
-      </Text>
-      <Text style={styles.title}>Your measurements</Text>
-      <Text style={styles.subtitle}>
-        We use these to proportion your try-on avatar. You can change them
-        anytime in your profile.
-      </Text>
-
-      {/* Units toggle */}
-      <View style={styles.unitsRow}>
-        {(["imperial", "metric"] as const).map((u) => {
-          const active = units === u;
-          return (
-            <Pressable
-              key={u}
-              style={[styles.unitButton, active && styles.unitButtonActive]}
-              onPress={() => setUnits(u)}
-            >
-              <Text
-                style={[styles.unitText, active && styles.unitTextActive]}
-              >
-                {u === "imperial" ? "ft / lbs" : "cm / kg"}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {units === "imperial" ? (
-        <>
-          <Text style={styles.label}>Height</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.input, styles.inputHalf]}
-              value={feet}
-              onChangeText={setFeet}
-              placeholder="5 ft"
-              placeholderTextColor={colors.faint}
-              keyboardType="number-pad"
-              maxLength={1}
-            />
-            <TextInput
-              style={[styles.input, styles.inputHalf]}
-              value={inches}
-              onChangeText={setInches}
-              placeholder="8 in"
-              placeholderTextColor={colors.faint}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-          </View>
-
-          <Text style={styles.label}>Weight</Text>
-          <TextInput
-            style={styles.input}
-            value={pounds}
-            onChangeText={setPounds}
-            placeholder="150 lbs"
-            placeholderTextColor={colors.faint}
-            keyboardType="number-pad"
-            maxLength={3}
-          />
-        </>
-      ) : (
-        <>
-          <Text style={styles.label}>Height</Text>
-          <TextInput
-            style={styles.input}
-            value={centimeters}
-            onChangeText={setCentimeters}
-            placeholder="172 cm"
-            placeholderTextColor={colors.faint}
-            keyboardType="number-pad"
-            maxLength={3}
-          />
-
-          <Text style={styles.label}>Weight</Text>
-          <TextInput
-            style={styles.input}
-            value={kilograms}
-            onChangeText={setKilograms}
-            placeholder="68 kg"
-            placeholderTextColor={colors.faint}
-            keyboardType="number-pad"
-            maxLength={3}
-          />
-        </>
-      )}
-
-      <Text style={styles.label}>General build</Text>
-      <View style={styles.pickerWrapper}>
-        <BuildPicker value={build} onChange={setBuild} widthScale={widthScale} />
-      </View>
-
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Pressable
-        style={[styles.button, !canContinue && styles.buttonDisabled]}
-        onPress={handleContinue}
-        disabled={!canContinue}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 32 }]}
+        keyboardShouldPersistTaps="handled"
       >
-        {saving ? (
-          <ActivityIndicator color={colors.onInk} />
+        <Text style={styles.brand}>
+          wardrobe<Text style={styles.brandAccent}>Spec</Text>
+        </Text>
+        <Text style={styles.title}>Your measurements</Text>
+        <Text style={styles.subtitle}>
+          We use these to proportion your try-on avatar. You can change them
+          anytime in your profile.
+        </Text>
+
+        {/* Units toggle */}
+        <View style={styles.unitsRow} accessibilityRole="radiogroup">
+          {(["imperial", "metric"] as const).map((u) => {
+            const active = units === u;
+            return (
+              <Pressable
+                key={u}
+                style={[styles.unitButton, active && styles.unitButtonActive]}
+                onPress={() => setUnits(u)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={
+                  u === "imperial" ? "Feet and pounds" : "Centimeters and kilograms"
+                }
+              >
+                <Text
+                  style={[styles.unitText, active && styles.unitTextActive]}
+                >
+                  {u === "imperial" ? "ft / lbs" : "cm / kg"}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {units === "imperial" ? (
+          <>
+            <Text style={styles.label}>Height</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, styles.inputHalf]}
+                value={feet}
+                onChangeText={(v) => setFeet(digitsOnly(v).slice(0, 1))}
+                placeholder="5 ft"
+                placeholderTextColor={colors.faint}
+                keyboardType="number-pad"
+                maxLength={1}
+                accessibilityLabel="Height, feet"
+              />
+              <TextInput
+                style={[styles.input, styles.inputHalf]}
+                value={inches}
+                onChangeText={(v) => setInches(digitsOnly(v).slice(0, 2))}
+                placeholder="8 in"
+                placeholderTextColor={colors.faint}
+                keyboardType="number-pad"
+                maxLength={2}
+                accessibilityLabel="Height, inches"
+              />
+            </View>
+
+            <Text style={styles.label}>Weight</Text>
+            <TextInput
+              style={styles.input}
+              value={pounds}
+              onChangeText={(v) => setPounds(digitsOnly(v).slice(0, 3))}
+              placeholder="150 lbs"
+              placeholderTextColor={colors.faint}
+              keyboardType="number-pad"
+              maxLength={3}
+              accessibilityLabel="Weight, pounds"
+            />
+          </>
         ) : (
-          <Text style={styles.buttonText}>Continue</Text>
+          <>
+            <Text style={styles.label}>Height</Text>
+            <TextInput
+              style={styles.input}
+              value={centimeters}
+              onChangeText={(v) => setCentimeters(digitsOnly(v).slice(0, 3))}
+              placeholder="172 cm"
+              placeholderTextColor={colors.faint}
+              keyboardType="number-pad"
+              maxLength={3}
+              accessibilityLabel="Height, centimeters"
+            />
+
+            <Text style={styles.label}>Weight</Text>
+            <TextInput
+              style={styles.input}
+              value={kilograms}
+              onChangeText={(v) => setKilograms(digitsOnly(v).slice(0, 3))}
+              placeholder="68 kg"
+              placeholderTextColor={colors.faint}
+              keyboardType="number-pad"
+              maxLength={3}
+              accessibilityLabel="Weight, kilograms"
+            />
+          </>
         )}
-      </Pressable>
-    </ScrollView>
+
+        <Text style={styles.label}>General build</Text>
+        <View style={styles.pickerWrapper}>
+          <BuildPicker value={build} onChange={setBuild} widthScale={widthScale} />
+        </View>
+        {build === null && (
+          <Text style={styles.hintText}>Pick a build to continue.</Text>
+        )}
+
+        {error && <Text style={styles.errorText}>{error}</Text>}
+
+        <Pressable
+          style={[styles.button, !canContinue && styles.buttonDisabled]}
+          onPress={handleContinue}
+          disabled={!canContinue}
+          accessibilityRole="button"
+        >
+          {saving ? (
+            <ActivityIndicator color={colors.onInk} />
+          ) : (
+            <Text style={styles.buttonText}>Continue</Text>
+          )}
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -256,8 +286,10 @@ const styles = StyleSheet.create({
   },
   unitButton: {
     paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingVertical: 11,
     borderRadius: radius.pill,
+    minHeight: 44,
+    justifyContent: "center",
   },
   unitButtonActive: {
     backgroundColor: colors.ink,
@@ -288,6 +320,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: colors.ink,
+    minHeight: 48,
   },
   inputHalf: {
     flex: 1,
@@ -300,6 +333,13 @@ const styles = StyleSheet.create({
     color: colors.danger,
     marginTop: spacing.sm,
     textAlign: "center",
+  },
+  hintText: {
+    ...type.subtle,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: -spacing.sm,
+    marginBottom: spacing.sm,
   },
   button: {
     backgroundColor: colors.ink,

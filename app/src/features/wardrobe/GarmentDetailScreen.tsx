@@ -37,10 +37,19 @@ export function GarmentDetailScreen() {
   const [tagsInput, setTagsInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const { url: imageUrl, loading: imageLoading } = useSignedImageUrl(
     garment?.image_path
   );
+
+  const applyGarmentToForm = useCallback((data: GarmentRow) => {
+    setCategory(data.category);
+    setName(data.name ?? "");
+    setColor(data.color ?? "");
+    setBrand(data.brand ?? "");
+    setTagsInput(data.tags.join(", "));
+  }, []);
 
   const loadGarment = useCallback(async () => {
     if (!id) return;
@@ -53,15 +62,12 @@ export function GarmentDetailScreen() {
       setError(fetchError);
     } else if (data) {
       setGarment(data);
-      setCategory(data.category);
-      setName(data.name ?? "");
-      setColor(data.color ?? "");
-      setBrand(data.brand ?? "");
-      setTagsInput(data.tags.join(", "));
+      applyGarmentToForm(data);
+      setImageFailed(false);
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, applyGarmentToForm]);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,8 +75,15 @@ export function GarmentDetailScreen() {
     }, [loadGarment])
   );
 
-  async function handleSave() {
+  function handleCancel() {
     if (!garment) return;
+    applyGarmentToForm(garment);
+    setError(null);
+    router.back();
+  }
+
+  async function handleSave() {
+    if (!garment || saving) return;
 
     setSaving(true);
     setError(null);
@@ -102,7 +115,7 @@ export function GarmentDetailScreen() {
   }
 
   function handleDelete() {
-    if (!garment) return;
+    if (!garment || deleting || saving) return;
 
     Alert.alert(
       "Delete garment",
@@ -154,11 +167,21 @@ export function GarmentDetailScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} />
+      {imageUrl && !imageFailed ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <View style={[styles.image, styles.imagePlaceholder]}>
-          {imageLoading && <ActivityIndicator />}
+          {imageLoading ? (
+            <ActivityIndicator />
+          ) : imageFailed ? (
+            <Text style={styles.imagePlaceholderText}>
+              Image unavailable
+            </Text>
+          ) : null}
         </View>
       )}
 
@@ -171,6 +194,7 @@ export function GarmentDetailScreen() {
               key={option.value}
               style={[styles.chip, isActive && styles.chipActive]}
               onPress={() => setCategory(option.value)}
+              disabled={saving || deleting}
             >
               <Text
                 style={[styles.chipText, isActive && styles.chipTextActive]}
@@ -188,6 +212,7 @@ export function GarmentDetailScreen() {
         value={name}
         onChangeText={setName}
         placeholder="e.g. Blue denim jacket"
+        editable={!saving && !deleting}
       />
 
       <Text style={styles.label}>Color</Text>
@@ -196,6 +221,7 @@ export function GarmentDetailScreen() {
         value={color}
         onChangeText={setColor}
         placeholder="e.g. Navy"
+        editable={!saving && !deleting}
       />
 
       <Text style={styles.label}>Brand</Text>
@@ -204,6 +230,7 @@ export function GarmentDetailScreen() {
         value={brand}
         onChangeText={setBrand}
         placeholder="e.g. Levi's"
+        editable={!saving && !deleting}
       />
 
       <Text style={styles.label}>Tags (comma separated)</Text>
@@ -212,6 +239,7 @@ export function GarmentDetailScreen() {
         value={tagsInput}
         onChangeText={setTagsInput}
         placeholder="e.g. summer, casual, denim"
+        editable={!saving && !deleting}
       />
 
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -219,7 +247,7 @@ export function GarmentDetailScreen() {
       <Pressable
         style={[styles.saveButton, saving && styles.buttonDisabled]}
         onPress={handleSave}
-        disabled={saving}
+        disabled={saving || deleting}
       >
         {saving ? (
           <ActivityIndicator color="#fff" />
@@ -229,9 +257,17 @@ export function GarmentDetailScreen() {
       </Pressable>
 
       <Pressable
+        style={[styles.cancelButton, (saving || deleting) && styles.buttonDisabled]}
+        onPress={handleCancel}
+        disabled={saving || deleting}
+      >
+        <Text style={styles.cancelButtonText}>Cancel</Text>
+      </Pressable>
+
+      <Pressable
         style={[styles.deleteButton, deleting && styles.buttonDisabled]}
         onPress={handleDelete}
-        disabled={deleting}
+        disabled={deleting || saving}
       >
         {deleting ? (
           <ActivityIndicator color="#c0392b" />
@@ -264,6 +300,10 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  imagePlaceholderText: {
+    color: colors.faint,
+    fontSize: 13,
   },
   label: {
     ...type.label,
@@ -317,13 +357,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  cancelButton: {
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  cancelButtonText: {
+    color: colors.muted,
+    fontSize: 15,
+    fontWeight: "600",
+  },
   deleteButton: {
     borderWidth: 1,
     borderColor: colors.danger,
     paddingVertical: 14,
     borderRadius: radius.md,
     alignItems: "center",
-    marginTop: 12,
+    marginTop: 20,
   },
   deleteButtonText: {
     color: colors.danger,

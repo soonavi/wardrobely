@@ -51,12 +51,12 @@ export const ANCHOR_ZONES: Record<
   GarmentCategory,
   { x: number; y: number; scale: number }
 > = {
-  top: { x: 150, y: 210, scale: 1 },
+  top: { x: 150, y: 180, scale: 1 },
   bottom: { x: 150, y: 400, scale: 1 },
-  dress: { x: 150, y: 320, scale: 1.15 },
-  outerwear: { x: 150, y: 210, scale: 1.2 },
-  shoes: { x: 150, y: 555, scale: 0.6 },
-  accessory: { x: 150, y: 90, scale: 0.5 },
+  dress: { x: 150, y: 300, scale: 1.15 },
+  outerwear: { x: 150, y: 180, scale: 1.2 },
+  shoes: { x: 150, y: 560, scale: 0.6 },
+  accessory: { x: 150, y: 95, scale: 0.5 },
 };
 
 /**
@@ -107,15 +107,15 @@ function HeadAndNeck() {
     <>
       <Ellipse
         cx={150}
-        cy={55}
-        rx={38}
-        ry={45}
+        cy={48}
+        rx={34}
+        ry={38}
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 132 92 L 132 125 L 168 125 L 168 92 Z"
+        d="M 132 86 L 132 104 L 168 104 L 168 86 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
@@ -131,14 +131,14 @@ function RectangleBody() {
       <HeadAndNeck />
       <Path
         d="
-          M 105 130
-          Q 150 118 195 130
-          L 205 260
-          Q 208 320 200 400
-          L 194 430
-          Q 150 440 106 430
-          L 100 400
-          Q 92 320 95 260
+          M 105 104
+          Q 150 95 195 104
+          L 205 198
+          Q 208 241 200 298
+          L 194 320
+          Q 150 327 106 320
+          L 100 298
+          Q 92 241 95 198
           Z
         "
         fill={SILHOUETTE_COLOR}
@@ -147,26 +147,26 @@ function RectangleBody() {
       />
       {/* Arms */}
       <Path
-        d="M 105 140 Q 85 200 88 280 L 100 282 Q 98 205 115 145 Z"
+        d="M 105 111 Q 85 251 88 438 L 100 443 Q 98 263 115 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 195 140 Q 215 200 212 280 L 200 282 Q 202 205 185 145 Z"
+        d="M 195 111 Q 215 251 212 438 L 200 443 Q 202 263 185 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       {/* Legs */}
       <Path
-        d="M 106 430 L 100 585 L 130 585 L 140 432 Z"
+        d="M 106 320 L 100 585 L 130 585 L 140 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 194 430 L 200 585 L 170 585 L 160 432 Z"
+        d="M 194 320 L 200 585 L 170 585 L 160 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
@@ -182,18 +182,18 @@ function HourglassBody() {
       <HeadAndNeck />
       <Path
         d="
-          M 100 130
-          Q 150 116 200 130
-          L 208 220
-          Q 165 260 165 280
-          Q 165 300 210 350
-          Q 214 390 200 425
-          L 194 430
-          Q 150 442 106 430
-          L 100 425
-          Q 86 390 90 350
-          Q 135 300 135 280
-          Q 135 260 92 220
+          M 100 104
+          Q 150 94 200 104
+          L 208 169
+          Q 165 198 165 212
+          Q 165 226 210 262
+          Q 214 291 200 316
+          L 194 320
+          Q 150 329 106 320
+          L 100 316
+          Q 86 291 90 262
+          Q 135 226 135 212
+          Q 135 198 92 169
           Z
         "
         fill={SILHOUETTE_COLOR}
@@ -202,26 +202,26 @@ function HourglassBody() {
       />
       {/* Arms */}
       <Path
-        d="M 100 140 Q 80 200 84 280 L 96 282 Q 93 205 110 145 Z"
+        d="M 100 111 Q 80 251 84 438 L 96 443 Q 93 263 110 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 200 140 Q 220 200 216 280 L 204 282 Q 207 205 190 145 Z"
+        d="M 200 111 Q 220 251 216 438 L 204 443 Q 207 263 190 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       {/* Legs */}
       <Path
-        d="M 106 430 L 100 585 L 130 585 L 140 432 Z"
+        d="M 106 320 L 100 585 L 130 585 L 140 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 194 430 L 200 585 L 170 585 L 160 432 Z"
+        d="M 194 320 L 200 585 L 170 585 L 160 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
@@ -237,16 +237,16 @@ function PearBody() {
       <HeadAndNeck />
       <Path
         d="
-          M 115 130
-          Q 150 120 185 130
-          L 190 220
-          Q 200 260 218 340
-          Q 224 390 210 425
-          L 200 430
-          Q 150 445 100 430
-          L 90 425
-          Q 76 390 82 340
-          Q 100 260 110 220
+          M 115 104
+          Q 150 97 185 104
+          L 190 169
+          Q 200 198 218 255
+          Q 224 291 210 316
+          L 200 320
+          Q 150 331 100 320
+          L 90 316
+          Q 76 291 82 255
+          Q 100 198 110 169
           Z
         "
         fill={SILHOUETTE_COLOR}
@@ -255,26 +255,26 @@ function PearBody() {
       />
       {/* Arms */}
       <Path
-        d="M 112 140 Q 95 195 98 275 L 110 277 Q 106 200 122 145 Z"
+        d="M 112 111 Q 95 239 98 426 L 110 431 Q 106 251 122 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 188 140 Q 205 195 202 275 L 190 277 Q 194 200 178 145 Z"
+        d="M 188 111 Q 205 239 202 426 L 190 431 Q 194 251 178 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       {/* Legs */}
       <Path
-        d="M 100 430 L 96 585 L 128 585 L 138 432 Z"
+        d="M 100 320 L 96 585 L 128 585 L 138 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 200 430 L 204 585 L 172 585 L 162 432 Z"
+        d="M 200 320 L 204 585 L 172 585 L 162 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
@@ -290,15 +290,15 @@ function AppleBody() {
       <HeadAndNeck />
       <Path
         d="
-          M 108 130
-          Q 150 118 192 130
-          Q 222 200 218 280
-          Q 214 340 198 400
-          L 192 428
-          Q 150 440 108 428
-          L 102 400
-          Q 86 340 82 280
-          Q 78 200 108 130
+          M 108 104
+          Q 150 95 192 104
+          Q 222 154 218 212
+          Q 214 255 198 298
+          L 192 319
+          Q 150 327 108 319
+          L 102 298
+          Q 86 255 82 212
+          Q 78 154 108 104
           Z
         "
         fill={SILHOUETTE_COLOR}
@@ -307,26 +307,26 @@ function AppleBody() {
       />
       {/* Arms */}
       <Path
-        d="M 108 145 Q 88 205 92 285 L 104 286 Q 100 210 118 150 Z"
+        d="M 108 123 Q 88 263 92 450 L 104 452 Q 100 275 118 134 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 192 145 Q 212 205 208 285 L 196 286 Q 200 210 182 150 Z"
+        d="M 192 123 Q 212 263 208 450 L 196 452 Q 200 275 182 134 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       {/* Legs (slimmer) */}
       <Path
-        d="M 112 428 L 104 585 L 128 585 L 136 430 Z"
+        d="M 112 317 L 104 585 L 128 585 L 136 320 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 188 428 L 196 585 L 172 585 L 164 430 Z"
+        d="M 188 317 L 196 585 L 172 585 L 164 320 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
@@ -342,14 +342,14 @@ function InvertedTriangleBody() {
       <HeadAndNeck />
       <Path
         d="
-          M 90 130
-          Q 150 112 210 130
-          L 200 240
-          Q 175 340 168 425
-          L 160 430
-          Q 150 434 140 430
-          L 132 425
-          Q 125 340 100 240
+          M 90 104
+          Q 150 91 210 104
+          L 200 183
+          Q 175 255 168 316
+          L 160 320
+          Q 150 323 140 320
+          L 132 316
+          Q 125 255 100 183
           Z
         "
         fill={SILHOUETTE_COLOR}
@@ -358,26 +358,26 @@ function InvertedTriangleBody() {
       />
       {/* Arms */}
       <Path
-        d="M 92 140 Q 68 195 74 275 L 88 277 Q 84 200 102 145 Z"
+        d="M 92 111 Q 68 239 74 426 L 88 431 Q 84 251 102 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 208 140 Q 232 195 226 275 L 212 277 Q 216 200 198 145 Z"
+        d="M 208 111 Q 232 239 226 426 L 212 431 Q 216 251 198 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       {/* Legs (narrow) */}
       <Path
-        d="M 140 430 L 130 585 L 152 585 L 150 432 Z"
+        d="M 140 320 L 130 585 L 152 585 L 150 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 160 430 L 170 585 L 148 585 L 150 432 Z"
+        d="M 160 320 L 170 585 L 148 585 L 150 323 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
@@ -393,16 +393,16 @@ function AthleticBody() {
       <HeadAndNeck />
       <Path
         d="
-          M 98 130
-          Q 150 116 202 130
-          L 208 220
-          Q 190 250 190 280
-          Q 190 305 200 340
-          L 195 428
-          Q 150 440 105 428
-          L 100 340
-          Q 110 305 110 280
-          Q 110 250 92 220
+          M 98 104
+          Q 150 94 202 104
+          L 208 169
+          Q 190 190 190 212
+          Q 190 230 200 255
+          L 195 319
+          Q 150 327 105 319
+          L 100 255
+          Q 110 230 110 212
+          Q 110 190 92 169
           Z
         "
         fill={SILHOUETTE_COLOR}
@@ -411,26 +411,26 @@ function AthleticBody() {
       />
       {/* Arms (defined) */}
       <Path
-        d="M 98 140 Q 76 195 82 278 L 96 280 Q 92 205 108 145 Z"
+        d="M 98 111 Q 76 239 82 433 L 96 438 Q 92 263 108 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 202 140 Q 224 195 218 278 L 204 280 Q 208 205 192 145 Z"
+        d="M 202 111 Q 224 239 218 433 L 204 438 Q 208 263 192 123 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       {/* Legs (toned, straighter) */}
       <Path
-        d="M 108 428 L 102 585 L 132 585 L 140 430 Z"
+        d="M 108 317 L 102 585 L 132 585 L 140 320 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
       />
       <Path
-        d="M 192 428 L 198 585 L 168 585 L 160 430 Z"
+        d="M 192 317 L 198 585 L 168 585 L 160 320 Z"
         fill={SILHOUETTE_COLOR}
         stroke={SILHOUETTE_STROKE}
         strokeWidth={2}
