@@ -13,6 +13,7 @@ import {
 import { signInWithOtp, verifyOtp } from "../../lib/api/auth";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import { colors, radius, type } from "../../lib/theme";
+import { Wordmark } from "../../components/Wordmark";
 
 type Step = "email" | "code";
 
@@ -138,9 +139,9 @@ export function SignInScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
-          <Text style={styles.title}>
-            wardrobe<Text style={styles.titleAccent}>Spec</Text>
-          </Text>
+          <View style={styles.wordmarkRow}>
+            <Wordmark size={34} />
+          </View>
           <Text style={styles.tagline}>Know what you own. Wear it well.</Text>
           <Text style={styles.subtitle}>
             {step === "email"
@@ -268,14 +269,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 24,
   },
-  title: {
-    ...type.title,
-    fontSize: 36,
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  titleAccent: {
-    color: colors.accent,
+  wordmarkRow: {
+    alignItems: "center",
+    marginBottom: 8,
   },
   tagline: {
     fontFamily: type.title.fontFamily,

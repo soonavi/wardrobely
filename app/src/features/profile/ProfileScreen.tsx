@@ -13,10 +13,12 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BuildPicker from "../avatar/BuildPicker";
 import { buildWidthScale } from "../avatar/avatars";
+import { deleteAccount } from "../../lib/api/account";
 import { signOut } from "../../lib/api/auth";
 import { updateBodyMetrics } from "../../lib/api/profiles";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import type { Build } from "../../lib/database.types";
+import { Wordmark } from "../../components/Wordmark";
 import { colors, radius, spacing, type } from "../../lib/theme";
 
 type Units = "imperial" | "metric";
@@ -52,6 +54,7 @@ export function ProfileScreen() {
   const [weightInput, setWeightInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const widthScale = buildWidthScale(profile?.height_cm, profile?.weight_kg);
@@ -197,13 +200,54 @@ export function ProfileScreen() {
     ]);
   }
 
+  /**
+   * Apple App Store Guideline 5.1.1(v): account deletion must be reachable
+   * in-app. Two-step confirmation, then calls the `delete-account` Edge
+   * Function (deletes Storage images + the auth user, cascading all DB
+   * rows) and signs the local session out. The root layout's auth gate
+   * would eventually pick up the cleared session on its own, but we also
+   * explicitly clear it + navigate here (same as handleSignOut above) so
+   * the app leaves this screen immediately instead of waiting on the
+   * auth-state-change event to propagate.
+   */
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your avatar, closet photos, saved outfits, and account. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await deleteAccount();
+              setSession(null);
+              router.replace("/(auth)/sign-in");
+            } catch {
+              setDeletingAccount(false);
+              Alert.alert(
+                "Couldn't delete account",
+                "We couldn't delete your account. Please try again or contact support."
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Profile</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Profile</Text>
+        <Wordmark size={22} />
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>Email</Text>
@@ -314,7 +358,68 @@ export function ProfileScreen() {
         {saving && <ActivityIndicator style={{ marginTop: 8 }} />}
       </View>
 
+      {/*
+        Shop surfaces the user owns. Both live outside the tab bar, so this
+        is their only entry point once the user has navigated away from the
+        Shop tab — hence a plain nav section rather than another CTA button.
+      */}
+      <View style={styles.card}>
+        <Text style={styles.label}>Shopping</Text>
+        <Pressable
+          style={styles.navRow}
+          onPress={() => router.push("/wishlist")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.value}>Saved items</Text>
+          <Text style={styles.navRowChevron}>→</Text>
+        </Pressable>
+        <View style={styles.navRowDivider} />
+        <Pressable
+          style={styles.navRow}
+          onPress={() => router.push("/orders")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.value}>Your orders</Text>
+          <Text style={styles.navRowChevron}>→</Text>
+        </Pressable>
+      </View>
+
       {error && <Text style={styles.errorText}>{error}</Text>}
+
+      {/*
+        PRODUCT PIVOT: the character creator (skin/face/hair/body/etc,
+        no photo or measurements required) is now how users set up and
+        edit their avatar — see src/features/creator/. Reachable here so
+        it isn't only a one-time onboarding step.
+      */}
+      <Pressable
+        style={styles.editCharacterButton}
+        onPress={() => router.push("/create-avatar")}
+      >
+        <Text style={styles.editCharacterButtonText}>Edit your character →</Text>
+      </Pressable>
+
+      {/*
+        The fully-3D, procedurally-built (no external asset) rendering of the
+        same customization the character creator edits — see
+        src/features/avatar3d/CharacterAvatar.tsx / CharacterViewerScreen.tsx.
+      */}
+      <Pressable
+        style={styles.view3dButton}
+        onPress={() => router.push("/character")}
+      >
+        <Text style={styles.view3dButtonText}>View your character in 3D →</Text>
+      </Pressable>
+
+      {/*
+        The dev/spike entrypoint that used to sit here ("Open 3D avatar
+        spike →") is gone, and so is the screen behind it — /avatar-spike
+        and its route file were deleted along with the hardcoded remote GLB
+        they depended on. The reusable part of that work (GLB loading,
+        cache-clear-on-retry, Suspense error handling) was extracted first
+        and lives in src/features/avatar3d/gltf/, unrouted, waiting for a
+        real rig. There is nothing to deep-link to.
+      */}
 
       <Pressable
         style={[styles.signOutButton, signingOut && styles.buttonDisabled]}
@@ -327,6 +432,27 @@ export function ProfileScreen() {
           <Text style={styles.signOutButtonText}>Sign Out</Text>
         )}
       </Pressable>
+
+      <View style={styles.dangerZone}>
+        <Text style={styles.dangerZoneLabel}>Danger zone</Text>
+        <Pressable
+          style={[
+            styles.deleteAccountButton,
+            deletingAccount && styles.buttonDisabled,
+          ]}
+          onPress={handleDeleteAccount}
+          disabled={deletingAccount}
+        >
+          {deletingAccount ? (
+            <ActivityIndicator color={colors.onInk} />
+          ) : (
+            <Text style={styles.deleteAccountButtonText}>Delete account</Text>
+          )}
+        </Pressable>
+        <Text style={styles.dangerZoneHint}>
+          Permanently deletes your data. This can&apos;t be undone.
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -340,9 +466,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: 48,
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
   title: {
     ...type.title,
-    marginBottom: spacing.md,
   },
   card: {
     backgroundColor: colors.surface,
@@ -466,10 +597,51 @@ const styles = StyleSheet.create({
   pickerWrapper: {
     marginHorizontal: -spacing.md,
   },
+  navRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  navRowChevron: {
+    color: colors.accent,
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  navRowDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
   errorText: {
     color: colors.danger,
     marginBottom: spacing.sm,
     textAlign: "center",
+  },
+  editCharacterButton: {
+    backgroundColor: colors.acid,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  editCharacterButtonText: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  view3dButton: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  view3dButtonText: {
+    color: colors.accent,
+    fontSize: 15,
+    fontWeight: "700",
   },
   signOutButton: {
     borderWidth: 1,
@@ -486,5 +658,33 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 16,
     fontWeight: "700",
+  },
+  dangerZone: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  dangerZoneLabel: {
+    ...type.label,
+    color: colors.danger,
+    marginBottom: spacing.sm,
+  },
+  deleteAccountButton: {
+    backgroundColor: colors.danger,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: "center",
+  },
+  deleteAccountButtonText: {
+    color: colors.onInk,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  dangerZoneHint: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: spacing.sm,
+    textAlign: "center",
   },
 });

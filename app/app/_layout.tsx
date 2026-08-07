@@ -2,9 +2,20 @@ import React, { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { useFonts } from "expo-font";
+import {
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_700Bold,
+} from "@expo-google-fonts/space-grotesk";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+} from "@expo-google-fonts/inter";
 import { getSession, onAuthStateChange } from "../src/lib/api/auth";
 import { getProfile } from "../src/lib/api/profiles";
 import { useAuthStore } from "../src/lib/stores/useAuthStore";
+import { colors, fonts } from "../src/lib/theme";
 
 /**
  * Root layout: wires up the Supabase auth session into useAuthStore, then
@@ -29,6 +40,14 @@ export default function RootLayout() {
 
   const router = useRouter();
   const segments = useSegments();
+
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+  });
 
   // Bootstrap session + subscribe to auth changes.
   useEffect(() => {
@@ -65,7 +84,7 @@ export default function RootLayout() {
   }, [session?.user.id, setProfile, setProfileLoaded]);
 
   useEffect(() => {
-    if (isLoading || !profileLoaded) return;
+    if (isLoading || !profileLoaded || !fontsLoaded) return;
 
     const segmentsRoot = segments[0];
     const inAuthGroup = segmentsRoot === "(auth)";
@@ -90,7 +109,7 @@ export default function RootLayout() {
     }
   }, [session, profile, profileLoaded, isLoading, segments, router]);
 
-  if (isLoading || !profileLoaded) {
+  if (isLoading || !profileLoaded || !fontsLoaded) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
@@ -100,7 +119,14 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { fontFamily: fonts.display, color: colors.ink },
+        }}
+      >
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -112,6 +138,40 @@ export default function RootLayout() {
           name="garment/[id]"
           options={{ headerShown: true, title: "Garment" }}
         />
+        {/*
+          Character creator (PRODUCT PIVOT) — build/edit your 3D-avatar
+          appearance customization (skin, face, hair, body, etc). Used
+          both embedded as the onboarding step (app/onboarding.tsx) and
+          reachable afterwards from the Profile tab's "Edit your
+          character" button.
+        */}
+        <Stack.Screen
+          name="create-avatar"
+          options={{ headerShown: false }}
+        />
+        {/*
+          Procedural stylized 3D character viewer — renders <CharacterAvatar>
+          (built entirely from three.js primitives, no external 3D asset)
+          from the signed-in user's saved customization. Reachable from the
+          character creator's "Preview in 3D" button and the Profile tab's
+          "View your character in 3D" entry. Headers hidden: the screen
+          draws its own back button/legend overlay on top of the <Canvas>.
+        */}
+        <Stack.Screen name="character" options={{ headerShown: false }} />
+        {/*
+          Shop / affiliate commerce (AFFILIATE_SYSTEM.md). Brand catalog
+          items a user can try on their avatar and then buy through a
+          tracked link. The Shop *browse* surface is a tab; these are the
+          screens pushed on top of it.
+
+          Headers stay hidden because each of these screens draws its own
+          back row — same convention as `character` above. The alternative
+          (headerShown: true) would double up on the in-screen header.
+        */}
+        <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="brand/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="wishlist" options={{ headerShown: false }} />
+        <Stack.Screen name="orders" options={{ headerShown: false }} />
       </Stack>
     </GestureHandlerRootView>
   );

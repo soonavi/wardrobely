@@ -4,7 +4,13 @@ import { getGarmentImageUrl } from "../api/garments";
 /**
  * Resolves a garment storage image_path into a signed, time-limited URL
  * suitable for <Image source={{ uri }} />. Re-resolves whenever the
- * imagePath changes; returns null while loading or on error.
+ * imagePath changes; returns null while loading or on error. Passing
+ * null/undefined is a documented no-op (idle, not loading, no error).
+ *
+ * This is the **storage-only** primitive. Screens rendering a garment row
+ * should call `useGarmentImageUrl` from ../garmentImage instead, which picks
+ * between this and a catalog garment's already-public CDN url — a
+ * catalog-sourced garment has no `image_path` to sign at all.
  */
 export function useSignedImageUrl(imagePath: string | null | undefined): {
   url: string | null;

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selv — Brand & Marketing Visual Kit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --lav:#8B7CFF;      /* digital lavender */
+  --lav-deep:#5B49D6;
+  --acid:#C7F94B;     /* acid green */
+  --acid-deep:#A6E01F;
+  --ink:#141026;      /* warm near-black */
+  --ink-2:#241d3f;
+  --cream:#F5F2EA;    /* off-white base */
+  --cream-2:#ECE7DA;
+  --muted:#7c7690;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+.display{font-family:'Space Grotesk',sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+section{padding:64px 0;border-bottom:1px solid var(--cream-2)}
+.eyebrow{font-family:'Space Grotesk';font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--lav-deep);font-weight:500;margin-bottom:14px}
+h2.sec{font-family:'Space Grotesk';font-size:30px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.sec-sub{color:var(--muted);font-size:15px;margin-bottom:34px;max-width:640px}
+
+/* ---------- HERO ---------- */
+.hero{background:var(--ink);color:var(--cream);border-bottom:none;padding:70px 0 76px;position:relative;overflow:hidden}
+.hero .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5}
+.b1{width:420px;height:420px;background:var(--lav);top:-120px;right:-60px}
+.b2{width:340px;height:340px;background:var(--acid);bottom:-160px;left:-80px;opacity:.35}
+.hero-inner{position:relative;z-index:2}
+.logo-lock{display:flex;align-items:center;gap:14px;margin-bottom:40px}
+.mark{width:46px;height:46px;border-radius:14px;background:#241d3f;display:flex;align-items:center;justify-content:center}
+.mark svg{width:30px;height:30px}
+.wordmark{font-family:'Space Grotesk';font-weight:700;font-size:26px;letter-spacing:-.03em}
+.hero h1{font-family:'Space Grotesk';font-weight:700;font-size:60px;line-height:1.02;letter-spacing:-.03em;max-width:820px}
+.hero h1 .hl{color:var(--acid)}
+.hero p.tag{font-size:19px;color:#c9c3e0;margin-top:22px;max-width:560px}
+.vibe{display:flex;gap:10px;margin-top:30px;flex-wrap:wrap}
+.chip{font-family:'Space Grotesk';font-weight:500;font-size:13px;padding:8px 16px;border-radius:100px;border:1px solid rgba(255,255,255,.22);color:var(--cream)}
+.chip.solid{background:var(--acid);color:var(--ink);border-color:var(--acid)}
+
+/* ---------- LOGO / TYPE ---------- */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.card{background:#fff;border:1px solid var(--cream-2);border-radius:20px;padding:26px}
+.logo-variants{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px}
+.lv{flex:1;min-width:150px;border-radius:16px;padding:26px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:22px;letter-spacing:-.03em}
+.lv .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--lav),var(--acid))}
+.lv.on-ink{background:var(--ink);color:var(--cream)}
+.lv.on-lav{background:var(--lav);color:#fff}
+.lv.on-cream{background:var(--cream-2);color:var(--ink)}
+.type-row{display:flex;align-items:baseline;gap:16px;padding:12px 0;border-bottom:1px solid var(--cream-2)}
+.type-row:last-child{border:none}
+.type-row .lbl{font-size:12px;color:var(--muted);width:120px;flex-shrink:0}
+
+/* ---------- PALETTE ---------- */
+.sw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.sw{border-radius:16px;overflow:hidden;border:1px solid var(--cream-2)}
+.sw .chipc{height:104px}
+.sw .meta{padding:12px 14px;background:#fff}
+.sw .nm{font-family:'Space Grotesk';font-weight:500;font-size:14px}
+.sw .hex{font-size:12px;color:var(--muted);font-family:'Space Grotesk'}
+
+/* ---------- PHONES ---------- */
+.screens{display:flex;gap:22px;overflow-x:auto;padding:8px 2px 20px}
+.phone-col{flex:0 0 244px}
+.phone-cap{font-family:'Space Grotesk';font-weight:500;font-size:14px;margin:0 0 12px;color:var(--ink)}
+.phone-cap span{display:block;font-family:'Inter';font-weight:400;font-size:12.5px;color:var(--muted)}
+.phone{width:244px;height:512px;background:var(--ink);border-radius:40px;padding:9px;box-shadow:0 24px 50px -18px rgba(20,16,38,.5)}
+.scr{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:76px;height:20px;background:var(--ink);border-radius:12px;z-index:5}
+.st{padding:16px 16px 8px;display:flex;justify-content:space-between;align-items:center;font-family:'Space Grotesk';font-weight:700;font-size:15px;letter-spacing:-.02em}
+/* avatar figure */
+.avatar-stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative}
+.plat{position:absolute;bottom:52px;width:150px;height:26px;border-radius:50%;background:rgba(0,0,0,.10)}
+figure.av{width:120px;position:relative;z-index:2}
+.tabrow{display:flex;gap:8px;padding:6px 16px 2px;overflow-x:auto}
+.tabrow .pill{flex-shrink:0}
+.swgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;padding:8px 16px 2px}
+.swc{aspect-ratio:1;border-radius:50%;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(20,16,38,.08)}
+.swc.sel{border-color:var(--lav)}
+.tabbar{display:flex;justify-content:space-around;padding:12px 0 16px;background:rgba(255,255,255,.7);backdrop-filter:blur(6px)}
+.tabbar i{width:22px;height:22px;border-radius:6px;background:var(--ink);opacity:.25}
+.tabbar i.act{opacity:1;background:var(--lav-deep)}
+.pill{font-family:'Space Grotesk';font-weight:500;font-size:12px;padding:7px 14px;border-radius:100px}
+.btn-primary{background:var(--ink);color:var(--cream);text-align:center;padding:13px;border-radius:100px;font-family:'Space Grotesk';font-weight:500;font-size:14px;margin:0 16px 14px}
+.btn-acid{background:var(--acid);color:var(--ink)}
+/* closet grid */
+.closet{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px 16px 12px;overflow:hidden}
+.gitem{aspect-ratio:1;border-radius:12px}
+/* item scroller */
+.scroller{display:flex;gap:8px;padding:10px 16px}
+.scroller .it{width:46px;height:46px;border-radius:12px;flex-shrink:0;border:2px solid transparent}
+.scroller .it.sel{border-color:var(--lav-deep)}
+.headline-sm{font-family:'Space Grotesk';font-weight:700;font-size:19px;letter-spacing:-.02em;padding:2px 16px 2px;line-height:1.15}
+.sub-sm{font-size:12.5px;color:var(--muted);padding:2px 16px 10px}
+.tag-price{position:absolute;right:14px;top:60px;background:#fff;border-radius:100px;padding:6px 12px;font-family:'Space Grotesk';font-weight:700;font-size:13px;box-shadow:0 6px 16px -6px rgba(0,0,0,.3);z-index:4}
+.react{display:flex;gap:8px;padding:0 16px 8px}
+.react .r{font-size:12px;background:rgba(255,255,255,.85);border-radius:100px;padding:5px 11px;font-weight:600}
+.handle{display:flex;align-items:center;gap:8px;padding:12px 16px 6px;font-family:'Space Grotesk';font-weight:500;font-size:13px}
+.ava-sm{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--lav),var(--acid))}
+
+/* ---------- LANDING ---------- */
+.browser{border-radius:18px;overflow:hidden;border:1px solid var(--cream-2);box-shadow:0 30px 60px -30px rgba(20,16,38,.4)}
+.bbar{background:#e7e2d6;padding:12px 16px;display:flex;gap:7px;align-items:center}
+.bbar .d{width:11px;height:11px;border-radius:50%}
+.burl{margin-left:14px;background:#fff;border-radius:8px;padding:5px 14px;font-size:12px;color:var(--muted);font-family:'Space Grotesk';flex:1;max-width:260px}
+.lp{background:var(--ink);color:var(--cream);padding:0;position:relative;overflow:hidden}
+.lp .blob{position:absolute;border-radius:50%;filter:blur(80px)}
+.lp-nav{display:flex;justify-content:space-between;align-items:center;padding:22px 34px;position:relative;z-index:2}
+.lp-nav .links{display:flex;gap:26px;align-items:center;font-family:'Space Grotesk';font-weight:500;font-size:14px;color:#c9c3e0}
+.lp-nav .cta{background:var(--acid);color:var(--ink);padding:9px 18px;border-radius:100px}
+.lp-body{display:grid;grid-template-columns:1.15fr .85fr;gap:20px;padding:36px 34px 54px;position:relative;z-index:2;align-items:center}
+.lp-body h1{font-family:'Space Grotesk';font-weight:700;font-size:48px;line-height:1.02;letter-spacing:-.03em}
+.lp-body h1 .hl{color:var(--acid)}
+.lp-body p{color:#c9c3e0;font-size:16px;margin-top:16px;max-width:400px}
+.waitlist{display:flex;gap:8px;margin-top:26px;max-width:400px}
+.waitlist input{flex:1;border:none;border-radius:100px;padding:13px 18px;font-family:'Inter';font-size:14px}
+.waitlist .go{background:var(--lav);color:#fff;border:none;border-radius:100px;padding:13px 22px;font-family:'Space Grotesk';font-weight:500;font-size:14px;cursor:pointer}
+.counter{margin-top:14px;font-size:13px;color:#9b93bd;display:flex;align-items:center;gap:8px}
+.dots{display:flex}
+.dots span{width:22px;height:22px;border-radius:50%;margin-left:-7px;border:2px solid var(--ink);background:linear-gradient(135deg,var(--lav),var(--acid))}
+.lp-phone{justify-self:center}
+
+/* ---------- SOCIAL ADS ---------- */
+.ads{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px}
+.ad{aspect-ratio:9/16;border-radius:22px;overflow:hidden;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:22px 20px;color:#fff}
+.ad .k{font-family:'Space Grotesk';font-weight:700;font-size:23px;line-height:1.1;letter-spacing:-.02em;position:relative;z-index:2}
+.ad .foot{position:relative;z-index:2;display:flex;align-items:center;gap:8px;font-family:'Space Grotesk';font-weight:500;font-size:14px}
+.ad .foot .m{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--lav),var(--acid))}
+.ad .badge{align-self:flex-start;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border-radius:100px;padding:6px 13px;font-size:12px;font-weight:600;position:relative;z-index:2}
+.ad .ablob{position:absolute;border-radius:50%;filter:blur(46px);opacity:.55}
+
+/* ---------- FOOTER / NAMES ---------- */
+.names{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.nmc{background:#fff;border:1px solid var(--cream-2);border-radius:16px;padding:18px}
+.nmc.pick{border:2px solid var(--lav);position:relative}
+.nmc .n{font-family:'Space Grotesk';font-weight:700;font-size:19px;letter-spacing:-.02em}
+.nmc .d{font-size:12.5px;color:var(--muted);margin-top:6px}
+.tagbadge{position:absolute;top:-11px;left:16px;background:var(--lav);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px}
+.note{font-size:13px;color:var(--muted);margin-top:26px;line-height:1.6}
+footer{padding:40px 0 60px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <div class="wrap hero-inner">
+    <div class="logo-lock">
+      <div class="mark"><svg viewBox="0 0 24 24"><circle cx="12" cy="9.5" r="4.5" fill="#8B7CFF"/><circle cx="12" cy="16" r="4.5" fill="#C7F94B" opacity="0.55"/></svg></div>
+      <div class="wordmark">selv</div>
+    </div>
+    <h1>Your closet,<br>but make it <span class="hl">3D.</span></h1>
+    <p class="tag">Design a 3D character that's you, dress it in your real clothes, try on anything before you buy — then post the fit.</p>
+    <div class="vibe">
+      <span class="chip solid">Playful</span>
+      <span class="chip">Confident</span>
+      <span class="chip">Iconic</span>
+      <span class="chip">Gen Z fashion &amp; social</span>
+    </div>
+  </div>
+</div>
+
+<!-- LOGO + TYPE -->
+<section><div class="wrap">
+  <div class="eyebrow">Identity</div>
+  <h2 class="sec">Logo &amp; type</h2>
+  <p class="sec-sub">The logo is the "reflection": lowercase <b>selv</b> with a faded, mirrored copy beneath it — your digital self, no divider line. The app icon distills it to a lavender dot and its acid-green reflection. Chunky Space Grotesk for hero moments, clean Inter for the UI. Lowercase always.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="eyebrow" style="color:var(--muted)">Wordmark lockups</div>
+      <div class="logo-variants">
+        <div class="lv on-ink" style="flex-direction:column;gap:0;line-height:.85"><span>selv</span><span style="transform:scaleY(-1);opacity:.28;color:var(--lav)">selv</span></div>
+        <div class="lv on-lav" style="flex-direction:column;gap:0;line-height:.85"><span>selv</span><span style="transform:scaleY(-1);opacity:.42;color:#fff">selv</span></div>
+        <div class="lv on-cream" style="flex-direction:column;gap:0;line-height:.85"><span>selv</span><span style="transform:scaleY(-1);opacity:.32;color:var(--lav-deep)">selv</span></div>
+        <img src="brand/icons/selv-icon-120.png" alt="Selv app icon" style="width:62px;height:62px;border-radius:15px;align-self:center;flex:0 0 auto">
+      </div>
+    </div>
+    <div class="card">
+      <div class="eyebrow" style="color:var(--muted)">Typography</div>
+      <div class="type-row"><span class="lbl">Display</span><span class="display" style="font-weight:700;font-size:28px;letter-spacing:-.03em">Space Grotesk</span></div>
+      <div class="type-row"><span class="lbl">UI / body</span><span style="font-weight:500;font-size:20px">Inter</span></div>
+      <div class="type-row"><span class="lbl">Voice</span><span style="font-size:15px;color:var(--muted)">group chat, not fashion magazine — "this fit ATE"</span></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- PALETTE -->
+<section><div class="wrap">
+  <div class="eyebrow">Palette</div>
+  <h2 class="sec">Colors that pop in a TikTok grid</h2>
+  <p class="sec-sub">Digital lavender and acid green as energy against warm neutrals — deliberately not another beige "clean girl" wellness palette.</p>
+  <div class="sw-grid">
+    <div class="sw"><div class="chipc" style="background:#8B7CFF"></div><div class="meta"><div class="nm">Digital Lavender</div><div class="hex">#8B7CFF</div></div></div>
+    <div class="sw"><div class="chipc" style="background:#C7F94B"></div><div class="meta"><div class="nm">Acid Green</div><div class="hex">#C7F94B</div></div></div>
+    <div class="sw"><div class="chipc" style="background:#141026"></div><div class="meta"><div class="nm">Warm Ink</div><div class="hex">#141026</div></div></div>
+    <div class="sw"><div class="chipc" style="background:#F5F2EA;border-bottom:1px solid #ECE7DA"></div><div class="meta"><div class="nm">Cream</div><div class="hex">#F5F2EA</div></div></div>
+    <div class="sw"><div class="chipc" style="background:linear-gradient(135deg,#8B7CFF,#C7F94B)"></div><div class="meta"><div class="nm">Avatar gradient</div><div class="hex">lavender → acid</div></div></div>
+  </div>
+</div></section>
+
+<!-- DESIGN YOUR CHARACTER -->
+<section><div class="wrap">
+  <div class="eyebrow">Character creator · design your look</div>
+  <h2 class="sec">Design your character</h2>
+  <p class="sec-sub">Not a photo. Not a body scan. In the character creator, users design a stylized 3D character — skin tone, face, eyes, hair, brows, body type — then dress it in their real clothes and share the fit. This is the identity layer the whole product is built on.</p>
+  <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="card" style="padding:0;overflow:hidden"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050520_804d8eb3-479d-4448-ae60-05af3f96e947.png" alt="Hero render of a stylized 3D character designed in Selv's character creator" style="width:100%;display:block"></div>
+    <div class="card" style="padding:0;overflow:hidden"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050525_1d24c949-8304-4eb6-a314-8f1577ec964b.png" alt="The character creator screen — choosing skin tone, hair, eyes, brows and body type" style="width:100%;display:block"></div>
+    <div class="card" style="padding:0;overflow:hidden"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050540_09e48ec6-a421-49bd-adbf-348f15eaf1f8.png" alt="The stylized character dressed up in the user's real clothes" style="width:100%;display:block"></div>
+  </div>
+</div></section>
+
+<!-- APP STORE SCREENS -->
+<section><div class="wrap">
+  <div class="eyebrow">Product · App Store screenshots</div>
+  <h2 class="sec">The five-screen story</h2>
+  <p class="sec-sub">The exact flow shoppers see on the store listing — design, digitize, style, try-on, share. Each screen maps to a growth loop.</p>
+  <div class="screens">
+
+    <div class="phone-col">
+      <p class="phone-cap">1 · Design your character<span>the character creator — no photo, no scan.</span></p>
+      <div class="phone"><div class="scr" style="background:linear-gradient(160deg,#efeaff,#f5f2ea)"><div class="notch"></div>
+        <div class="st" style="color:var(--ink)">Character<span style="font-size:12px;color:var(--lav-deep)">step 1/3</span></div>
+        <div class="headline-sm">Design your character.</div>
+        <div class="sub-sm">Skin, face, hair, body — make it yours</div>
+        <div class="avatar-stage" style="flex:none;height:140px">
+          <div class="plat" style="bottom:2px;width:104px;height:16px"></div>
+          <svg class="av" viewBox="0 0 120 210" style="width:78px">
+            <circle cx="60" cy="50" r="38" fill="#E8B88A"/>
+            <path d="M22 46 Q17 0 60 0 Q103 0 98 46 Q95 12 60 12 Q25 12 22 46 Z" fill="#5B49D6"/>
+            <path d="M18 40 Q14 60 20 74 Q26 60 26 42 Z" fill="#5B49D6"/>
+            <path d="M102 40 Q106 60 100 74 Q94 60 94 42 Z" fill="#5B49D6"/>
+            <path d="M36 40 Q45 34 53 38" stroke="#5B49D6" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M67 38 Q75 34 84 40" stroke="#5B49D6" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <circle cx="45" cy="53" r="5.5" fill="#141026"/><circle cx="75" cy="53" r="5.5" fill="#141026"/>
+            <circle cx="47" cy="50.8" r="1.8" fill="#fff"/><circle cx="77" cy="50.8" r="1.8" fill="#fff"/>
+            <ellipse cx="35" cy="63" rx="7" ry="4" fill="#ff9d9d" opacity=".4"/><ellipse cx="85" cy="63" rx="7" ry="4" fill="#ff9d9d" opacity=".4"/>
+            <path d="M50 69 Q60 76 70 69" stroke="#141026" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            <rect x="30" y="96" width="60" height="60" rx="24" fill="#ECE7DA"/>
+          </svg>
+        </div>
+        <div class="tabrow"><span class="pill" style="background:var(--ink);color:var(--cream)">Skin</span><span class="pill" style="background:var(--cream-2)">Hair</span><span class="pill" style="background:var(--cream-2)">Eyes</span><span class="pill" style="background:var(--cream-2)">Body</span></div>
+        <div class="swgrid">
+          <div class="swc" style="background:#F7DCC6"></div><div class="swc sel" style="background:#E8B88A"></div><div class="swc" style="background:#C98F5D"></div>
+          <div class="swc" style="background:#9C6A3E"></div><div class="swc" style="background:#6E4526"></div><div class="swc" style="background:#3E2A1A"></div>
+        </div>
+        <div class="btn-primary btn-acid" style="margin-top:auto">Continue</div>
+        <div class="tabbar"><i class="act"></i><i></i><i></i><i></i></div>
+      </div></div>
+    </div>
+
+    <div class="phone-col">
+      <p class="phone-cap">2 · Your closet, digitized<span>your real clothes, digitized.</span></p>
+      <div class="phone"><div class="scr" style="background:#fff"><div class="notch"></div>
+        <div class="st" style="color:var(--ink)">Closet<span style="font-size:12px;color:var(--muted)">48 items</span></div>
+        <div class="scroller" style="padding-top:2px"><span class="pill" style="background:var(--ink);color:var(--cream)">All</span><span class="pill" style="background:var(--cream-2)">Tops</span><span class="pill" style="background:var(--cream-2)">Bottoms</span><span class="pill" style="background:var(--cream-2)">Shoes</span></div>
+        <div class="closet">
+          <div class="gitem" style="background:#c9bfff"></div><div class="gitem" style="background:#e7e2d6"></div><div class="gitem" style="background:#141026"></div>
+          <div class="gitem" style="background:#C7F94B"></div><div class="gitem" style="background:#f0b8cf"></div><div class="gitem" style="background:#8B7CFF"></div>
+          <div class="gitem" style="background:#d8d2c4"></div><div class="gitem" style="background:#3a3450"></div><div class="gitem" style="background:#e8dfff"></div>
+          <div class="gitem" style="background:#b9e089"></div><div class="gitem" style="background:#c9bfff"></div><div class="gitem" style="background:#141026"></div>
+        </div>
+        <div class="btn-primary" style="margin-top:auto">+ Add item</div>
+        <div class="tabbar"><i></i><i class="act"></i><i></i><i></i></div>
+      </div></div>
+    </div>
+
+    <div class="phone-col">
+      <p class="phone-cap">3 · Dress up as yourself<span>dress your character in your closet.</span></p>
+      <div class="phone"><div class="scr" style="background:linear-gradient(160deg,#f5f2ea,#efeaff)"><div class="notch"></div>
+        <div class="st" style="color:var(--ink)">Styling<span style="font-size:12px;color:var(--lav-deep)">outfit 7</span></div>
+        <div class="avatar-stage" style="flex:none;height:280px"><div class="plat" style="bottom:16px"></div>
+          <svg class="av" viewBox="0 0 120 210" style="width:112px">
+            <circle cx="60" cy="42" r="32" fill="#E8B88A"/>
+            <path d="M28 38 Q24 0 60 0 Q96 0 92 38 Q90 8 60 8 Q30 8 28 38 Z" fill="#5B49D6"/>
+            <path d="M45 34 Q52 29 59 32" stroke="#5B49D6" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <path d="M61 32 Q68 29 75 34" stroke="#5B49D6" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <circle cx="50" cy="44" r="4.6" fill="#141026"/><circle cx="70" cy="44" r="4.6" fill="#141026"/>
+            <circle cx="51.5" cy="42.2" r="1.5" fill="#fff"/><circle cx="71.5" cy="42.2" r="1.5" fill="#fff"/>
+            <path d="M53 57 Q60 62 67 57" stroke="#141026" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <rect x="32" y="76" width="56" height="60" rx="22" fill="#141026"/>
+            <rect x="22" y="80" width="14" height="42" rx="7" fill="#141026"/><rect x="84" y="80" width="14" height="42" rx="7" fill="#141026"/>
+            <rect x="38" y="132" width="18" height="66" rx="9" fill="#4a4270"/><rect x="64" y="132" width="18" height="66" rx="9" fill="#4a4270"/>
+            <rect x="36" y="190" width="22" height="12" rx="6" fill="#C7F94B"/><rect x="62" y="190" width="22" height="12" rx="6" fill="#C7F94B"/>
+          </svg>
+        </div>
+        <div class="scroller"><div class="it sel" style="background:#141026"></div><div class="it" style="background:#8B7CFF"></div><div class="it" style="background:#f0b8cf"></div><div class="it" style="background:#e7e2d6"></div><div class="it" style="background:#C7F94B"></div></div>
+        <div class="btn-primary btn-acid" style="margin-bottom:8px">Save outfit</div>
+        <div class="tabbar"><i></i><i></i><i class="act"></i><i></i></div>
+      </div></div>
+    </div>
+
+    <div class="phone-col">
+      <p class="phone-cap">4 · See it before you buy<span>try before you buy.</span></p>
+      <div class="phone"><div class="scr" style="background:linear-gradient(160deg,#eaffe0,#f5f2ea)"><div class="notch"></div>
+        <div class="st" style="color:var(--ink)">Try-on<span class="pill" style="background:var(--acid);font-size:11px;padding:4px 10px">before you buy</span></div>
+        <div class="tag-price">$68 · Zara</div>
+        <div class="avatar-stage"><div class="plat"></div>
+          <svg class="av" viewBox="0 0 120 210" style="width:112px">
+            <circle cx="60" cy="42" r="32" fill="#E8B88A"/>
+            <path d="M28 38 Q24 0 60 0 Q96 0 92 38 Q90 8 60 8 Q30 8 28 38 Z" fill="#5B49D6"/>
+            <path d="M45 34 Q52 29 59 32" stroke="#5B49D6" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <path d="M61 32 Q68 29 75 34" stroke="#5B49D6" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <circle cx="50" cy="44" r="4.6" fill="#141026"/><circle cx="70" cy="44" r="4.6" fill="#141026"/>
+            <circle cx="51.5" cy="42.2" r="1.5" fill="#fff"/><circle cx="71.5" cy="42.2" r="1.5" fill="#fff"/>
+            <path d="M53 57 Q60 62 67 57" stroke="#141026" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <rect x="36" y="120" width="18" height="78" rx="9" fill="#2d2748"/><rect x="66" y="120" width="18" height="78" rx="9" fill="#2d2748"/>
+            <path d="M24 62 Q60 48 96 62 L98 92 L82 98 L84 132 Q60 140 36 132 L38 98 L22 92 Z" fill="#C7F94B"/>
+          </svg>
+        </div>
+        <div class="react"><span class="r">🔥 saves a return</span></div>
+        <div class="btn-primary">Buy it · try more first</div>
+        <div class="tabbar"><i></i><i></i><i></i><i class="act"></i></div>
+      </div></div>
+    </div>
+
+    <div class="phone-col">
+      <p class="phone-cap">5 · Post the fit<span>every fit is a share card.</span></p>
+      <div class="phone"><div class="scr" style="background:var(--ink)"><div class="notch"></div>
+        <div class="handle" style="color:var(--cream)"><span class="ava-sm"></span>@maya · fit of the day</div>
+        <div class="avatar-stage" style="background:linear-gradient(160deg,#5B49D6,#141026);margin:0 14px;border-radius:20px">
+          <svg class="av" viewBox="0 0 120 210" style="width:112px">
+            <circle cx="60" cy="42" r="32" fill="#E8B88A"/>
+            <path d="M28 38 Q24 0 60 0 Q96 0 92 38 Q90 8 60 8 Q30 8 28 38 Z" fill="#C7F94B"/>
+            <path d="M45 34 Q52 29 59 32" stroke="#C7F94B" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <path d="M61 32 Q68 29 75 34" stroke="#C7F94B" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <circle cx="50" cy="44" r="4.6" fill="#141026"/><circle cx="70" cy="44" r="4.6" fill="#141026"/>
+            <circle cx="51.5" cy="42.2" r="1.5" fill="#fff"/><circle cx="71.5" cy="42.2" r="1.5" fill="#fff"/>
+            <path d="M50 57 Q60 64 70 57" stroke="#141026" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M32 66 Q60 56 88 66 L86 118 Q60 126 34 118 Z" fill="#C7F94B"/>
+            <rect x="42" y="118" width="15" height="76" rx="7" fill="#e7e2d6"/><rect x="63" y="118" width="15" height="76" rx="7" fill="#e7e2d6"/>
+          </svg>
+        </div>
+        <div class="react" style="margin-top:10px"><span class="r">🔥 214</span><span class="r">this ate 💅</span></div>
+        <div class="btn-primary btn-acid" style="margin-top:4px">Share fit</div>
+        <div style="text-align:center;font-size:11px;color:#9b93bd;padding-bottom:2px">made on selv</div>
+        <div class="tabbar" style="background:rgba(255,255,255,.08)"><i style="background:#fff"></i><i style="background:#fff"></i><i style="background:#fff"></i><i class="act" style="background:var(--acid)"></i></div>
+      </div></div>
+    </div>
+
+  </div>
+</div></section>
+
+<!-- LANDING -->
+<section><div class="wrap">
+  <div class="eyebrow">Go-to-market · Waitlist</div>
+  <h2 class="sec">Landing page hero</h2>
+  <p class="sec-sub">Pre-launch waitlist with a position-jump referral and a blurred-character teaser — an open loop worth sharing ("I need to see my character").</p>
+  <div class="browser">
+    <div class="bbar"><span class="d" style="background:#ff6058"></span><span class="d" style="background:#ffbd2e"></span><span class="d" style="background:#28ca42"></span><span class="burl">selv.app</span></div>
+    <div class="lp">
+      <div class="blob b1" style="width:360px;height:360px;background:var(--lav);top:-140px;right:-40px;opacity:.5"></div>
+      <div class="blob b2" style="width:280px;height:280px;background:var(--acid);bottom:-140px;left:60px;opacity:.3"></div>
+      <div class="lp-nav">
+        <div style="display:flex;align-items:center;gap:10px"><div class="mark" style="width:34px;height:34px;border-radius:10px"><svg viewBox="0 0 24 24"><circle cx="12" cy="9.5" r="4.5" fill="#8B7CFF"/><circle cx="12" cy="16" r="4.5" fill="#C7F94B" opacity="0.55"/></svg></div><span class="wordmark" style="font-size:20px">selv</span></div>
+        <div class="links"><span>How it works</span><span>Pricing</span><span class="cta">Join waitlist</span></div>
+      </div>
+      <div class="lp-body">
+        <div>
+          <h1>Dress up as <span class="hl">yourself.</span></h1>
+          <p>A 3D character you design, wearing your actual closet. Mix outfits, try on anything before you buy, and share your best fits.</p>
+          <div class="waitlist"><input placeholder="you@email.com" readonly><button class="go">Get early access</button></div>
+          <div class="counter"><span class="dots"><span></span><span></span><span></span><span></span></span> 12,480 already in line · jump the queue with 3 invites</div>
+        </div>
+        <div class="lp-phone">
+          <div class="phone" style="width:190px;height:400px;border-radius:32px"><div class="scr" style="border-radius:26px;background:linear-gradient(160deg,#efeaff,#f5f2ea)"><div class="notch" style="width:60px;height:16px"></div>
+            <div class="avatar-stage"><div class="plat" style="width:120px"></div>
+              <svg class="av" viewBox="0 0 120 240" style="width:100px"><defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B7CFF"/><stop offset="1" stop-color="#5B49D6"/></linearGradient></defs>
+                <circle cx="60" cy="30" r="22" fill="url(#g5)"/><rect x="46" y="52" width="28" height="16" rx="8" fill="url(#g5)"/>
+                <path d="M32 70 Q60 60 88 70 L86 132 Q60 140 34 132 Z" fill="url(#g5)"/>
+                <rect x="42" y="132" width="15" height="98" rx="7" fill="url(#g5)"/><rect x="63" y="132" width="15" height="98" rx="7" fill="url(#g5)"/>
+                <rect x="30" y="80" width="14" height="60" rx="7" fill="url(#g5)"/><rect x="76" y="80" width="14" height="60" rx="7" fill="url(#g5)"/>
+              </svg>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- SOCIAL ADS -->
+<section><div class="wrap">
+  <div class="eyebrow">Content · TikTok / Reels</div>
+  <h2 class="sec">Social ad concepts</h2>
+  <p class="sec-sub">Vertical-first, sound-led, captioned. Hooks pulled straight from the content strategy — the character reveal, the closet speedrun, the try-on save.</p>
+  <div class="ads">
+    <div class="ad" style="background:var(--ink)">
+      <div class="ablob" style="width:200px;height:200px;background:var(--lav);top:-40px;right:-40px"></div>
+      <div class="badge">character reveal</div>
+      <div class="k">wait for it… I designed<br>this <span style="color:var(--acid)">myself</span> 😭</div>
+      <div class="foot"><span class="m"></span>selv</div>
+    </div>
+    <div class="ad" style="background:var(--lav)">
+      <div class="ablob" style="width:200px;height:200px;background:var(--acid);bottom:-50px;left:-40px;opacity:.7"></div>
+      <div class="badge" style="background:rgba(20,16,38,.18);color:var(--ink)">closet speedrun</div>
+      <div class="k" style="color:#fff">POV: you digitize your<br>ENTIRE closet in one video</div>
+      <div class="foot" style="color:#fff"><span class="m"></span>selv</div>
+    </div>
+    <div class="ad" style="background:linear-gradient(160deg,#A6E01F,#5B49D6)">
+      <div class="badge">try-on save</div>
+      <div class="k">I was ONE tap from<br>buying this 🙏</div>
+      <div class="foot" style="color:#fff"><span class="m"></span>selv</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- NAMES -->
+<section><div class="wrap">
+  <div class="eyebrow">Naming</div>
+  <h2 class="sec">Name shortlist</h2>
+  <p class="sec-sub">"Drobe" is already an active competitor — retire it. These encode the core mechanic (fit + digital twin) and lend themselves to Gen Z verbification. Run a 24-hour trademark/domain clearance before locking.</p>
+  <div class="names">
+    <div class="nmc pick"><span class="tagbadge">using here</span><div class="n">Selv</div><div class="d">"digital twin" + "we're twinning" (matching fits). selv.app likely open.</div></div>
+    <div class="nmc"><div class="n">Fitcast</div><div class="d">"fit" + broadcast your fit. Verbable — "fitcast it."</div></div>
+    <div class="nmc"><div class="n">Mimic</div><div class="d">Real word; literally what a parametric avatar does — mimics you.</div></div>
+    <div class="nmc"><div class="n">Fitroom</div><div class="d">"fitting room" collapsed. Safer, strong App Store keyword value.</div></div>
+    <div class="nmc"><div class="n">Wardro</div><div class="d">Short wardrobe-root, more ownable than "Drobe."</div></div>
+  </div>
+  <p class="note">Body-image guardrail baked into the brand: the avatar is framed as a styling tool, never a body-evaluation tool. No numeric body/outfit scoring, reaction-based feedback only ("this ate," fire), diverse-body QA by default, and one-tap data deletion surfaced at photo upload. Copy hypes, never judges.</p>
+</div></section>
+
+<footer>Selv — brand &amp; marketing visual kit · working concept, July 2026 · colors, logo &amp; name are directional and swappable pending trademark clearance</footer>
+
+</body>
+</html>

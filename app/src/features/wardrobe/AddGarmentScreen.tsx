@@ -18,6 +18,8 @@ import type { GarmentCategory } from "../../lib/database.types";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import { CATEGORY_OPTIONS } from "./types";
 import { colors, radius, type } from "../../lib/theme";
+import { SelvPlusWaitlistSheet } from "../paywall/SelvPlusWaitlistSheet";
+import { wardrobeLimitMessage } from "../../lib/pricing";
 
 export function AddGarmentScreen() {
   const router = useRouter();
@@ -33,6 +35,7 @@ export function AddGarmentScreen() {
   const [tagsInput, setTagsInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [waitlistVisible, setWaitlistVisible] = useState(false);
 
   function handlePermissionDenied(
     canAskAgain: boolean,
@@ -132,6 +135,18 @@ export function AddGarmentScreen() {
     setSaving(false);
 
     if (createError) {
+      // The wardrobe cap is normally enforced before the user ever reaches
+      // this screen (see WardrobeGridScreen's "Add item" gate), but
+      // createGarment() re-checks it right before insert as a defensive
+      // guard (e.g. against deep-linking straight into add-garment once
+      // already at the cap). Surface that specific case as the Selv+
+      // waitlist sheet instead of a generic inline error — the same sheet
+      // the grid opens, so the two walls read identically and differ only in
+      // the `source` they record.
+      if (createError === wardrobeLimitMessage()) {
+        setWaitlistVisible(true);
+        return;
+      }
       setError(createError);
       return;
     }
@@ -142,116 +157,134 @@ export function AddGarmentScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.title}>Add Garment</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Add Garment</Text>
 
-      <View style={styles.imageSection}>
-        {imageUri && !imageFailed ? (
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.preview}
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <View style={[styles.preview, styles.previewPlaceholder]}>
-            <Text style={styles.placeholderText}>
-              {imageFailed
-                ? "Couldn't load that image. Please pick another."
-                : "No image selected"}
-            </Text>
-          </View>
-        )}
+        <View style={styles.imageSection}>
+          {imageUri && !imageFailed ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.preview}
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <View style={[styles.preview, styles.previewPlaceholder]}>
+              <Text style={styles.placeholderText}>
+                {imageFailed
+                  ? "Couldn't load that image. Please pick another."
+                  : "No image selected"}
+              </Text>
+            </View>
+          )}
 
-        <View style={styles.imageButtonsRow}>
-          <Pressable
-            style={[styles.secondaryButton, saving && styles.buttonDisabled]}
-            onPress={takePhoto}
-            disabled={saving}
-          >
-            <Text style={styles.secondaryButtonText}>Take Photo</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.secondaryButton, saving && styles.buttonDisabled]}
-            onPress={pickFromLibrary}
-            disabled={saving}
-          >
-            <Text style={styles.secondaryButtonText}>Choose from Gallery</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.categoryRow}>
-        {CATEGORY_OPTIONS.map((option) => {
-          const isActive = option.value === category;
-          return (
+          <View style={styles.imageButtonsRow}>
             <Pressable
-              key={option.value}
-              style={[styles.chip, isActive && styles.chipActive]}
-              onPress={() => setCategory(option.value)}
+              style={[styles.secondaryButton, saving && styles.buttonDisabled]}
+              onPress={takePhoto}
+              disabled={saving}
             >
-              <Text
-                style={[styles.chipText, isActive && styles.chipTextActive]}
-              >
-                {option.label}
+              <Text style={styles.secondaryButtonText}>Take Photo</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.secondaryButton, saving && styles.buttonDisabled]}
+              onPress={pickFromLibrary}
+              disabled={saving}
+            >
+              <Text style={styles.secondaryButtonText}>
+                Choose from Gallery
               </Text>
             </Pressable>
-          );
-        })}
-      </View>
+          </View>
+        </View>
 
-      <Text style={styles.label}>Name</Text>
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        placeholder="e.g. Blue denim jacket"
+        <Text style={styles.label}>Category</Text>
+        <View style={styles.categoryRow}>
+          {CATEGORY_OPTIONS.map((option) => {
+            const isActive = option.value === category;
+            return (
+              <Pressable
+                key={option.value}
+                style={[styles.chip, isActive && styles.chipActive]}
+                onPress={() => setCategory(option.value)}
+              >
+                <Text
+                  style={[styles.chipText, isActive && styles.chipTextActive]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>Name</Text>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="e.g. Blue denim jacket"
+        />
+
+        <Text style={styles.label}>Color</Text>
+        <TextInput
+          style={styles.input}
+          value={color}
+          onChangeText={setColor}
+          placeholder="e.g. Navy"
+        />
+
+        <Text style={styles.label}>Brand</Text>
+        <TextInput
+          style={styles.input}
+          value={brand}
+          onChangeText={setBrand}
+          placeholder="e.g. Levi's"
+        />
+
+        <Text style={styles.label}>Tags (comma separated)</Text>
+        <TextInput
+          style={styles.input}
+          value={tagsInput}
+          onChangeText={setTagsInput}
+          placeholder="e.g. summer, casual, denim"
+        />
+
+        {error && <Text style={styles.errorText}>{error}</Text>}
+
+        <Pressable
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color={colors.onInk} />
+          ) : (
+            <Text style={styles.saveButtonText}>
+              {error ? "Retry Save" : "Save Garment"}
+            </Text>
+          )}
+        </Pressable>
+      </ScrollView>
+
+      {/* Dismissing returns to the wardrobe: the user is at the cap, so this
+          form cannot succeed no matter what they do next, and leaving them
+          on an unsaveable screen is the same dead end the old "Upgrade"
+          button was. Matches the previous Alert, which called router.back()
+          from both of its actions. */}
+      <SelvPlusWaitlistSheet
+        visible={waitlistVisible}
+        source="add_garment"
+        onClose={() => {
+          setWaitlistVisible(false);
+          router.back();
+        }}
       />
-
-      <Text style={styles.label}>Color</Text>
-      <TextInput
-        style={styles.input}
-        value={color}
-        onChangeText={setColor}
-        placeholder="e.g. Navy"
-      />
-
-      <Text style={styles.label}>Brand</Text>
-      <TextInput
-        style={styles.input}
-        value={brand}
-        onChangeText={setBrand}
-        placeholder="e.g. Levi's"
-      />
-
-      <Text style={styles.label}>Tags (comma separated)</Text>
-      <TextInput
-        style={styles.input}
-        value={tagsInput}
-        onChangeText={setTagsInput}
-        placeholder="e.g. summer, casual, denim"
-      />
-
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Pressable
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.saveButtonText}>
-            {error ? "Retry Save" : "Save Garment"}
-          </Text>
-        )}
-      </Pressable>
-    </ScrollView>
+    </>
   );
 }
 

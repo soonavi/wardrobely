@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,20 +12,22 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import {
-  deleteGarment,
-  getGarment,
-  updateGarment,
-} from "../../lib/api/garments";
-import { useSignedImageUrl } from "../../lib/hooks/useSignedImageUrl";
+import { deleteGarment, getGarment, updateGarment } from "../../lib/api/garments";
+import { getProduct, type ProductWithBrand } from "../../lib/api/shop";
+import { createCheckoutLink } from "../../lib/api/affiliate";
+import { effectivePriceCents, formatPrice } from "../../lib/commerce/commission";
+import { useGarmentImageUrl } from "../../lib/garmentImage";
+import { useAuthStore } from "../../lib/stores/useAuthStore";
 import type { GarmentCategory, GarmentRow } from "../../lib/database.types";
 import { CATEGORY_OPTIONS } from "./types";
-import { colors, radius, type } from "../../lib/theme";
+import { colors, radius, spacing, type } from "../../lib/theme";
 
 /** View / edit / delete a single garment. */
 export function GarmentDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const session = useAuthStore((s) => s.session);
+  const userId = session?.user.id;
 
   const [garment, setGarment] = useState<GarmentRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,9 +42,15 @@ export function GarmentDetailScreen() {
   const [deleting, setDeleting] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
-  const { url: imageUrl, loading: imageLoading } = useSignedImageUrl(
-    garment?.image_path
-  );
+  // Set for garments saved from the Shop; drives the Buy / View-in-shop
+  // block below. Null while it loads, and stays null (with `productError`
+  // shown in its place) if the partner delisted the item since it was saved.
+  const [product, setProduct] = useState<ProductWithBrand | null>(null);
+  const [productLoading, setProductLoading] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [buying, setBuying] = useState(false);
+
+  const { url: imageUrl, loading: imageLoading } = useGarmentImageUrl(garment);
 
   const applyGarmentToForm = useCallback((data: GarmentRow) => {
     setCategory(data.category);
@@ -74,6 +83,73 @@ export function GarmentDetailScreen() {
       loadGarment();
     }, [loadGarment])
   );
+
+  const catalogProductId = garment?.product_id ?? null;
+
+  useEffect(() => {
+    if (!catalogProductId) {
+      setProduct(null);
+      setProductError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setProductLoading(true);
+    setProductError(null);
+
+    getProduct(catalogProductId).then(({ data, error: fetchError }) => {
+      if (cancelled) return;
+      setProductLoading(false);
+      if (fetchError || !data) {
+        setProduct(null);
+        setProductError(fetchError ?? "This item is no longer available.");
+        return;
+      }
+      setProduct(data);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogProductId]);
+
+  /**
+   * Same tracked-handoff contract as the try-on studio's Buy bar: if the
+   * click can't be recorded we surface that instead of opening an untracked
+   * link (see createCheckoutLink's doc comment). `source: "outfit"` because
+   * this is a Buy from something already in the user's wardrobe/outfits,
+   * which is a different funnel from browsing the Shop.
+   */
+  async function handleBuy(target: ProductWithBrand) {
+    if (!userId || buying) return;
+    setBuying(true);
+
+    const { data, error: linkError } = await createCheckoutLink({
+      userId,
+      product: target,
+      source: "outfit",
+    });
+
+    if (linkError || !data) {
+      setBuying(false);
+      Alert.alert(
+        "Couldn't open this item",
+        linkError ?? "Please check your connection and try again."
+      );
+      return;
+    }
+
+    try {
+      await Linking.openURL(data.url);
+    } catch {
+      Alert.alert(
+        "Couldn't open this item",
+        "We couldn't open your browser. Please try again."
+      );
+    } finally {
+      setBuying(false);
+    }
+  }
 
   function handleCancel() {
     if (!garment) return;
@@ -127,6 +203,9 @@ export function GarmentDetailScreen() {
           style: "destructive",
           onPress: async () => {
             setDeleting(true);
+            // `image_path` is null for catalog-sourced garments, whose
+            // imagery lives on the partner's CDN; deleteGarment skips the
+            // storage removal in that case.
             const { error: deleteError } = await deleteGarment(
               garment.id,
               garment.image_path
@@ -182,6 +261,53 @@ export function GarmentDetailScreen() {
               Image unavailable
             </Text>
           ) : null}
+        </View>
+      )}
+
+      {/* Shop provenance — only for garments saved from the catalog. A
+          user-photographed garment has nowhere to buy and no PDP to link. */}
+      {catalogProductId && (
+        <View style={styles.shopCard}>
+          <Text style={styles.shopCardLabel}>From the Shop</Text>
+
+          {productLoading ? (
+            <ActivityIndicator style={styles.shopCardLoading} />
+          ) : productError ? (
+            <Text style={styles.shopCardUnavailable}>{productError}</Text>
+          ) : product ? (
+            <>
+              <Pressable
+                style={[styles.buyButton, buying && styles.buttonDisabled]}
+                onPress={() => handleBuy(product)}
+                disabled={buying || saving || deleting}
+                accessibilityRole="button"
+              >
+                {buying ? (
+                  <ActivityIndicator color={colors.ink} />
+                ) : (
+                  <Text style={styles.buyButtonText}>
+                    {`Buy — ${formatPrice(
+                      effectivePriceCents(product),
+                      product.currency
+                    )}`}
+                  </Text>
+                )}
+              </Pressable>
+              {/* FTC 16 CFR Part 255 — disclose the material connection
+                  right next to the affiliate link, not elsewhere. */}
+              <Text style={styles.shopCardDisclosure}>
+                Selv earns a commission
+              </Text>
+            </>
+          ) : null}
+
+          <Pressable
+            style={styles.viewInShopButton}
+            onPress={() => router.push(`/product/${catalogProductId}`)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.viewInShopButtonText}>View in shop →</Text>
+          </Pressable>
         </View>
       )}
 
@@ -250,7 +376,7 @@ export function GarmentDetailScreen() {
         disabled={saving || deleting}
       >
         {saving ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.onInk} />
         ) : (
           <Text style={styles.saveButtonText}>Save Changes</Text>
         )}
@@ -270,7 +396,7 @@ export function GarmentDetailScreen() {
         disabled={deleting || saving}
       >
         {deleting ? (
-          <ActivityIndicator color="#c0392b" />
+          <ActivityIndicator color={colors.danger} />
         ) : (
           <Text style={styles.deleteButtonText}>Delete Garment</Text>
         )}
@@ -309,6 +435,53 @@ const styles = StyleSheet.create({
     ...type.label,
     marginTop: 12,
     marginBottom: 6,
+  },
+  shopCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  shopCardLabel: {
+    ...type.label,
+    marginBottom: spacing.sm,
+  },
+  shopCardLoading: {
+    marginVertical: spacing.sm,
+  },
+  shopCardUnavailable: {
+    fontSize: 13,
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+  buyButton: {
+    backgroundColor: colors.acid,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: "center",
+  },
+  buyButtonText: {
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  shopCardDisclosure: {
+    fontSize: 11,
+    color: colors.muted,
+    textAlign: "center",
+    marginTop: 6,
+  },
+  viewInShopButton: {
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  viewInShopButtonText: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: "700",
   },
   input: {
     borderWidth: 1,

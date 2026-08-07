@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,10 +20,59 @@ import {
   renameOutfit,
   type OutfitWithItems,
 } from "../../lib/api/outfits";
+import { getMyAvatar } from "../../lib/api/avatars";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
-import { useTryOnStore } from "../../lib/stores/useTryOnStore";
-import { getSignedGarmentImageUrls } from "../tryon/imageUrl";
+import { resolveGarmentImageUrls } from "../../lib/garmentImage";
+import { mergeCustomization, type Customization } from "../creator/customization";
+import {
+  resolveGarmentColor,
+  resolveOutfitSlots,
+  type EquipSlot,
+} from "../avatar3d/garmentVisual";
+import { ShareCard } from "../share/ShareCard";
+import { useShareCard } from "../share/useShareCard";
+import type { AvatarPreviewEquipped } from "../creator/AvatarPreview";
 import { colors, radius, type } from "../../lib/theme";
+
+/**
+ * The slots the flat share-card figure can actually tint.
+ *
+ * `EquipSlot` also contains `accessory` (the 3D character wears it at the
+ * neckline), but `AvatarPreview` is a 2D vector illustration with no geometry
+ * for one, so there is nowhere to put its colour. Listed explicitly, and typed
+ * against `EquipSlot`, so that adding a slot to the shared vocabulary forces a
+ * decision here instead of silently going unrendered.
+ */
+const PREVIEW_SLOTS = ["top", "bottom", "shoes"] as const satisfies readonly EquipSlot[];
+
+/**
+ * Which of an outfit's garments the share card shows, per slot.
+ *
+ * The choice itself — top-most layer wins a contested slot, a dress displaces
+ * separate bottoms — is `resolveOutfitSlots` in avatar3d/garmentVisual.ts,
+ * shared with CharacterTryOnScreen. This screen used to carry its own copy of
+ * that rule, which meant the Outfits grid could preview a different outfit
+ * than tapping into it actually put on the character.
+ *
+ * `hidden` is ignored here on purpose: this is a read-only preview and never
+ * writes items back, so there is nothing to carry.
+ */
+function buildEquippedFromOutfit(outfit: OutfitWithItems): AvatarPreviewEquipped {
+  const { bySlot } = resolveOutfitSlots(outfit.items);
+
+  const equipped: AvatarPreviewEquipped = {};
+  PREVIEW_SLOTS.forEach((slot) => {
+    const item = bySlot[slot];
+    if (!item) return;
+    equipped[slot] = {
+      color: resolveGarmentColor(item.garment),
+      name: item.garment.name ?? undefined,
+      long: item.garment.category === "dress",
+    };
+  });
+
+  return equipped;
+}
 
 const PREVIEW_STACK_SIZE = 3;
 
@@ -32,7 +81,7 @@ export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const session = useAuthStore((s) => s.session);
   const userId = session?.user.id;
-  const loadFromOutfit = useTryOnStore((s) => s.loadFromOutfit);
+  const profile = useAuthStore((s) => s.profile);
 
   const [outfits, setOutfits] = useState<OutfitWithItems[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
@@ -42,6 +91,53 @@ export default function OutfitsScreen() {
   const [renameTarget, setRenameTarget] = useState<OutfitWithItems | null>(null);
   const [renameInput, setRenameInput] = useState("");
   const [busyOutfitId, setBusyOutfitId] = useState<string | null>(null);
+
+  // --- Share ---------------------------------------------------------------
+  // `shareOutfit` is both "which outfit is currently queued for sharing" and
+  // (via its id) which card shows the busy overlay below.
+  const [customization, setCustomization] = useState<Customization | null>(null);
+  const [shareOutfit, setShareOutfit] = useState<OutfitWithItems | null>(null);
+  const { cardRef: shareCardRef, share: shareCard } = useShareCard();
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await getMyAvatar();
+      // mergeCustomization always returns a fully-populated Customization,
+      // even from a null/failed fetch, so this never leaves `customization`
+      // stuck at null (which would otherwise hang a queued share forever).
+      setCustomization(mergeCustomization(data?.customization as Partial<Customization> | null | undefined));
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!shareOutfit || !customization) return;
+    let cancelled = false;
+
+    (async () => {
+      // Give the off-screen <ShareCard> (re-rendered with the new
+      // outfit/customization this same tick) a couple of frames to actually
+      // paint before snapshotting it.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (cancelled) return;
+
+      const result = await shareCard();
+      if (cancelled) return;
+
+      if (!result.ok && result.error) {
+        Alert.alert("Couldn't share", result.error);
+      }
+      setShareOutfit(null);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shareOutfit, customization, shareCard]);
+
+  function handleShare(outfit: OutfitWithItems) {
+    if (shareOutfit) return;
+    setShareOutfit(outfit);
+  }
 
   const loadOutfits = useCallback(async () => {
     if (!userId) return;
@@ -58,10 +154,12 @@ export default function OutfitsScreen() {
     const rows = data ?? [];
     setOutfits(rows);
 
-    const allPaths = rows.flatMap((o) =>
-      o.items.slice(0, PREVIEW_STACK_SIZE).map((i) => i.garment.image_path)
+    // Keyed by garment id, not image_path: a catalog-sourced garment has no
+    // path at all, and the same garment can appear across several outfits.
+    const previewGarments = rows.flatMap((o) =>
+      o.items.slice(0, PREVIEW_STACK_SIZE).map((i) => i.garment)
     );
-    const urls = await getSignedGarmentImageUrls(allPaths);
+    const urls = await resolveGarmentImageUrls(previewGarments);
     setThumbUrls(urls);
 
     setLoading(false);
@@ -83,8 +181,28 @@ export default function OutfitsScreen() {
       Alert.alert("Error", fetchError ?? "Could not load outfit.");
       return;
     }
-    loadFromOutfit(data);
-    router.push("/(tabs)/tryon" as const);
+
+    /*
+     * One handoff: the `?outfitId=` param. The Try On tab renders the 3D
+     * CharacterTryOnScreen, which keeps per-slot equipped state of its own.
+     * The id is passed rather than the fetched rows because a route param is
+     * that screen's existing, already-proven entry contract (the Shop's
+     * `?productId=` deep link works the same way) and it survives a cold deep
+     * link, where handing over in-memory objects can't.
+     *
+     * This used to *also* prime the legacy 2D studio's zustand store, so that
+     * studio would be holding the same outfit when the 3D screen offered it as
+     * the accessories fallback. Both the offer and the studio are gone —
+     * accessories have a 3D slot now — so that write went with them.
+     *
+     * The redundant fetch this implies (the 3D screen re-reads the outfit by
+     * id) buys the error above: a broken outfit fails here, on the screen the
+     * user tapped, instead of after yanking them to another tab.
+     */
+    router.push({
+      pathname: "/(tabs)/tryon",
+      params: { outfitId: data.id },
+    });
   }
 
   function openRenameModal(outfit: OutfitWithItems) {
@@ -185,7 +303,7 @@ export default function OutfitsScreen() {
                   <View style={[styles.previewImage, styles.previewPlaceholder]} />
                 ) : (
                   item.items.slice(0, PREVIEW_STACK_SIZE).map((outfitItem, index) => {
-                    const url = thumbUrls[outfitItem.garment.image_path];
+                    const url = thumbUrls[outfitItem.garment_id];
                     return (
                       <View
                         key={outfitItem.garment_id}
@@ -223,6 +341,12 @@ export default function OutfitsScreen() {
               <View style={styles.cardActionsRow}>
                 <Pressable
                   style={styles.cardActionButton}
+                  onPress={() => handleShare(item)}
+                >
+                  <Text style={styles.cardActionText}>Share</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.cardActionButton}
                   onPress={() => openRenameModal(item)}
                 >
                   <Text style={styles.cardActionText}>Rename</Text>
@@ -237,7 +361,7 @@ export default function OutfitsScreen() {
                 </Pressable>
               </View>
 
-              {busyOutfitId === item.id && (
+              {(busyOutfitId === item.id || shareOutfit?.id === item.id) && (
                 <View style={styles.cardBusyOverlay}>
                   <ActivityIndicator color={colors.accent} />
                 </View>
@@ -276,7 +400,7 @@ export default function OutfitsScreen() {
                 disabled={busyOutfitId === renameTarget?.id}
               >
                 {busyOutfitId === renameTarget?.id ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onInk} />
                 ) : (
                   <Text style={styles.modalSaveButtonText}>Save</Text>
                 )}
@@ -285,6 +409,23 @@ export default function OutfitsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Off-screen ShareCard — mounted only once `customization` has
+          loaded, moved well outside the viewport so it's laid out (for
+          captureRef) without ever being visible. Reflects whichever outfit
+          is currently queued via handleShare/`shareOutfit`; see this
+          screen's top-level useEffect for the capture-after-paint timing. */}
+      {customization && (
+        <View style={styles.offscreenCapture} pointerEvents="none">
+          <ShareCard
+            cardRef={shareCardRef}
+            customization={customization}
+            equipped={shareOutfit ? buildEquippedFromOutfit(shareOutfit) : {}}
+            outfitName={shareOutfit?.name ?? undefined}
+            handle={profile?.display_name ?? undefined}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -293,6 +434,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  offscreenCapture: {
+    position: "absolute",
+    top: -10000,
+    left: 0,
   },
   header: {
     paddingHorizontal: 16,
@@ -417,7 +563,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(250,247,242,0.7)",
+    // rgba equivalent of colors.bg (#F5F2EA) at 0.7 opacity — React Native
+    // style values can't reference theme hex through an opacity shorthand.
+    backgroundColor: "rgba(245,242,234,0.7)",
     alignItems: "center",
     justifyContent: "center",
   },

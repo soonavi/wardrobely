@@ -1,37 +1,55 @@
 {
   "expo": {
-    "name": "wardrobeSpec",
-    "slug": "wardrobe-app",
-    "scheme": "wardrobespec",
+    "name": "Selv",
+    "slug": "selv",
+    "scheme": "selv",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FAF7F2"
+      "backgroundColor": "#F5F2EA"
     },
-    "backgroundColor": "#FAF7F2",
+    "backgroundColor": "#F5F2EA",
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.wardrobe.app"
+      "bundleIdentifier": "com.selv.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.wardrobe.app"
+      "package": "com.selv.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#141026"
+      }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Wardrobe to access your photos so you can add garment images.",
-          "cameraPermission": "Allow Wardrobe to access your camera so you can photograph garments."
+          "photosPermission": "Allow Selv to access your photos so you can add garment images.",
+          "cameraPermission": "Allow Selv to access your camera so you can photograph garments."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Selv to save your share card to your Photos.",
+          "savePhotosPermission": "Allow Selv to save your share card to your Photos.",
+          "isAccessMediaLocationEnabled": false
         }
       ]
     ]

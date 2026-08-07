@@ -1,0 +1,31 @@
+# Repo-root ignores.
+#
+# This working directory has accumulated files belonging to other projects and
+# to individual machines. They are listed here so that `git add -A` cannot
+# sweep them into a commit — not because they are unimportant, but because
+# they are not part of the Selv wardrobe app and do not belong in its history.
+
+# --- Other projects living in this directory -------------------------------
+# `trading/` is a separate quantitative research project (MR-1 mean reversion:
+# strategy config, cached OHLC data, pytest artifacts). NaviBuild is a
+# different business entirely — a 3D-printing financial model. Neither has any
+# relationship to this app; committing them would publish unrelated business
+# data to this repo.
+/trading/
+/NaviBuild-Base-Case.csv
+/NaviBuild-Financial-Model.html
+
+# --- Machine-local configuration -------------------------------------------
+# .mcp.json wires up an MCP server by ABSOLUTE PATH on one developer's machine
+# (C:/Users/.../my-vault/...). It is meaningless on any other checkout and
+# leaks a local filesystem layout, so it stays untracked.
+.mcp.json
+
+# Stray empty lockfile at the repo root. The real one is app/package-lock.json;
+# this one has no packages and exists only because npm was once run one
+# directory too high.
+/package-lock.json
+
+# --- OS / editor -----------------------------------------------------------
+.DS_Store
+Thumbs.db

@@ -1,69 +1,90 @@
-import { Platform } from "react-native";
-
 /**
- * wardrobeSpec design system — "tailor's studio" aesthetic:
- * warm ivory paper, near-black ink, terracotta accent, serif display
- * type (system serif — no font loading needed, works in Expo Go).
- * All screens pull colors/spacing/type from here; no hard-coded hex
- * values in screen styles.
+ * Selv design system — bold Gen Z fashion-tech look:
+ * warm ink text on a cream base, digital-lavender as the accent, and an
+ * acid-green "pop" for CTAs/highlights. All screens pull colors/spacing/type
+ * from here; no hard-coded hex in screen styles.
+ *
+ * Type uses the bundled brand fonts — Space Grotesk (display) + Inter (UI),
+ * loaded via @expo-google-fonts in app/_layout.tsx's useFonts gate. The root
+ * layout doesn't render its children until those fonts (and auth/profile
+ * state) are ready, so any screen using `type`/`fonts` below can assume the
+ * custom families are already registered.
  */
 export const colors = {
-  /** App background — warm ivory, like pattern paper. */
-  bg: "#FAF7F2",
+  /** App background — warm cream. */
+  bg: "#F5F2EA",
   /** Cards / inputs. */
   surface: "#FFFFFF",
   /** Slightly sunken surfaces (chips, placeholders). */
-  surfaceAlt: "#F1EBE3",
+  surfaceAlt: "#ECE7DA",
   /** Primary text + filled buttons — warm near-black ink. */
-  ink: "#1C1814",
+  ink: "#141026",
   /** Secondary text. */
-  muted: "#8A8075",
+  muted: "#7C7690",
   /** Faint text / placeholders. */
-  faint: "#B5AB9F",
+  faint: "#A9A4BF",
   /** Hairline borders. */
-  border: "#E6DFD4",
-  /** Accent — terracotta, used sparingly (selection, links, FAB). */
-  accent: "#B4552D",
+  border: "#E7E1D4",
+  /** Accent — digital lavender; used for selection, links, FAB. */
+  accent: "#5B49D6",
   /** Soft accent wash for selected states. */
-  accentSoft: "#F6E7DE",
+  accentSoft: "#EEEDFE",
+  /** Acid-green energy pop — CTAs / highlights. Text on it should be ink. */
+  acid: "#C7F94B",
+  acidDeep: "#A6E01F",
   /** Errors / destructive. */
-  danger: "#A63A2B",
+  danger: "#E24B4A",
   /** Text on ink or accent backgrounds. */
-  onInk: "#FBF8F3",
-  /** Avatar silhouette fill/stroke — warm taupe. */
-  silhouette: "#CFC5B6",
-  silhouetteStroke: "#A99C89",
+  onInk: "#F5F2EA",
+  /** Avatar silhouette fill/stroke — lavender tints. */
+  silhouette: "#C9BFFF",
+  silhouetteStroke: "#8B7CFF",
 } as const;
 
-/** Serif display face for titles/wordmark; falls back per platform. */
-export const displayFont = Platform.select({
-  ios: "Georgia",
-  android: "serif",
-  default: "serif",
-});
+/**
+ * Bundled brand font families, keyed to the useFonts() map in
+ * app/_layout.tsx. Names must match exactly — they're how RN looks up the
+ * registered custom fonts at render time.
+ */
+export const fonts = {
+  /** Space Grotesk Bold — display/wordmark. */
+  display: "SpaceGrotesk_700Bold",
+  /** Space Grotesk Medium — secondary display weight. */
+  displayMed: "SpaceGrotesk_500Medium",
+  /** Inter Regular — body copy. */
+  body: "Inter_400Regular",
+  /** Inter Medium — emphasized body/buttons. */
+  medium: "Inter_500Medium",
+  /** Inter SemiBold — labels/section headers. */
+  semibold: "Inter_600SemiBold",
+} as const;
+
+/** Display face for titles/wordmark. Kept as a named export for back-compat. */
+export const displayFont = fonts.display;
 
 export const type = {
-  /** Screen titles — editorial serif. */
+  /** Screen titles — bold, tight tracking (grotesk feel). */
   title: {
-    fontFamily: displayFont,
+    fontFamily: fonts.display,
     fontSize: 30,
-    fontWeight: "700" as const,
     color: colors.ink,
-    letterSpacing: 0.2,
+    letterSpacing: -0.5,
   },
   /** Section labels — small caps feel. */
   label: {
+    fontFamily: fonts.semibold,
     fontSize: 12,
-    fontWeight: "700" as const,
     color: colors.muted,
     letterSpacing: 1.2,
     textTransform: "uppercase" as const,
   },
   body: {
+    fontFamily: fonts.body,
     fontSize: 15,
     color: colors.ink,
   },
   subtle: {
+    fontFamily: fonts.body,
     fontSize: 14,
     color: colors.muted,
   },
@@ -84,5 +105,5 @@ export const spacing = {
   xl: 32,
 } as const;
 
-/** The brand wordmark, styled as two-tone in screens: wardrobe + Spec. */
-export const BRAND = "wardrobeSpec";
+/** The brand wordmark. */
+export const BRAND = "selv";

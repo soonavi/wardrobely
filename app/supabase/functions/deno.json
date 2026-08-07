@@ -1,0 +1,37 @@
+{
+  "$comment": [
+    "Deno configuration for Selv's Supabase Edge Functions.",
+    "",
+    "These files are Deno, not React Native. They use URL imports, the global",
+    "`Deno` namespace, and `.ts` extensions in relative specifiers — all of",
+    "which the app's tsconfig (extends expo/tsconfig.base) rejects. Keeping a",
+    "separate config here lets `deno check` / `deno lint` validate them",
+    "properly, and documents that the app toolchain should never compile this",
+    "directory.",
+    "",
+    "REQUIRED COMPANION CHANGE (owned by another agent): app/tsconfig.json",
+    "currently has include: ['**/*.ts','**/*.tsx'] and exclude: ['node_modules'],",
+    "which WILL pull these files into `tsc`. Add 'supabase/functions' to its",
+    "exclude array."
+  ],
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": false,
+    "lib": ["deno.window", "deno.ns"]
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "lineWidth": 90,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}

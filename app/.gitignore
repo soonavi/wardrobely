@@ -28,3 +28,16 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Native projects. This is a managed/CNG workflow — there are no ios/ or
+# android/ folders in source control, and there shouldn't be. `expo prebuild`
+# or `eas build --local` generates them locally as build artifacts; committing
+# them silently opts the project out of config-plugin regeneration, so app.json
+# changes would stop taking effect.
+/ios
+/android
+
+# Local build artifacts
+*.ipa
+*.aab
+*.apk
