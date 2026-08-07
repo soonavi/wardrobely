@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { listGarments } from "../../lib/api/garments";
+import { countGarments, listGarments } from "../../lib/api/garments";
 import { useGarmentImageUrl } from "../../lib/garmentImage";
 import type { GarmentCategory, GarmentRow } from "../../lib/database.types";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
@@ -33,6 +33,17 @@ export function WardrobeGridScreen() {
   const userId = session?.user.id;
 
   const [garments, setGarments] = useState<GarmentRow[]>([]);
+  /**
+   * Size of the WHOLE wardrobe, independent of the active filters.
+   *
+   * `garments` holds only what the current category/tag filter matched, so it
+   * cannot speak for the cap: filtering to a category with three items would
+   * otherwise read as "3/25" to a user who owns twenty-five, and wave them
+   * into an add-garment flow that `createGarment` then rejects at save time.
+   * Null until the first count lands — see the cap logic below for why that
+   * distinction matters.
+   */
+  const [totalGarments, setTotalGarments] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] =
     useState<GarmentCategory | null>(null);
   const [tagFilter, setTagFilter] = useState("");
@@ -54,15 +65,37 @@ export function WardrobeGridScreen() {
       }
       setError(null);
 
-      const { data, error: fetchError } = await listGarments(userId, {
-        category: selectedCategory ?? undefined,
-        tag: trimmedTagFilter || undefined,
-      });
+      // Fired together: the filtered page the grid renders, and the unfiltered
+      // total the cap is judged against. Concurrent rather than sequential
+      // because neither depends on the other and the count is a head request
+      // with no rows to fetch.
+      const [
+        { data, error: fetchError },
+        { data: total, error: countError },
+      ] = await Promise.all([
+        listGarments(userId, {
+          category: selectedCategory ?? undefined,
+          tag: trimmedTagFilter || undefined,
+        }),
+        countGarments(userId),
+      ]);
 
       if (fetchError) {
         setError(fetchError);
       } else {
         setGarments(data ?? []);
+      }
+
+      // A failed count is not surfaced as a screen error — the grid itself
+      // loaded fine and blocking it would be a worse outcome than a missing
+      // counter. Leaving `totalGarments` null makes the cap fail *open*: the
+      // header hides the count rather than showing a wrong one, and the add
+      // button stays live so a user under the cap isn't locked out by a
+      // transient network blip. `createGarment` re-checks server-side anyway,
+      // so a user genuinely at the limit is still refused — just at save time
+      // rather than at the button.
+      if (!countError) {
+        setTotalGarments(total);
       }
 
       setLoading(false);
@@ -83,10 +116,17 @@ export function WardrobeGridScreen() {
   // always returns "free" because there is no entitlement to read — Selv+ is
   // not for sale in v1 — so the cap is active for every user today.
   const plan = getCurrentPlan();
-  const remainingSlots = remainingFreeSlots(garments.length, plan);
+  // `totalGarments`, never `garments.length` — see the state declaration.
+  // While the count is still null the cap is unknown, so `remainingSlots`
+  // stays null and the header simply omits the counter.
+  const remainingSlots =
+    totalGarments === null ? null : remainingFreeSlots(totalGarments, plan);
 
   const handleAddPress = useCallback(() => {
-    if (!canAddGarment(garments.length, plan)) {
+    // An unknown total fails open (see loadGarments). canAddGarment(0, …) is
+    // always true, which is the deliberate choice: `createGarment` enforces
+    // the cap against the live server count regardless.
+    if (!canAddGarment(totalGarments ?? 0, plan)) {
       // Opens the waitlist sheet, not a purchase flow: there isn't one, and
       // this used to be an Alert whose "Upgrade" button was wired to a TODO.
       // A Modal rather than an Alert because the honest version needs an
@@ -95,7 +135,7 @@ export function WardrobeGridScreen() {
       return;
     }
     router.push("/add-garment");
-  }, [garments.length, plan, router]);
+  }, [totalGarments, plan, router]);
 
   // loadGarments' identity changes with selectedCategory, so this single
   // focus effect covers both screen focus and filter changes (a separate
@@ -113,7 +153,7 @@ export function WardrobeGridScreen() {
           <Text style={styles.title}>Wardrobe</Text>
           {remainingSlots !== null && (
             <Text style={styles.itemCount}>
-              {garments.length}/{FREE_WARDROBE_LIMIT} items
+              {totalGarments}/{FREE_WARDROBE_LIMIT} items
             </Text>
           )}
         </View>

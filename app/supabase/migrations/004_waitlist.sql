@@ -114,8 +114,34 @@ create table if not exists public.waitlist_signups (
 -- populated table; the create-table above deliberately has no default,
 -- because a caller that forgets to say where the user hit the wall should be
 -- rejected rather than silently attributed to the wardrobe grid.
+--
+-- `email` cannot use that same trick. Adding a NOT NULL column evaluates its
+-- default once and backfills every existing row with the result, and
+-- `auth.jwt()` is NULL over the direct connection a migration runs on — psql,
+-- the SQL editor, `supabase db push` — because there is no PostgREST request
+-- to read claims from. So against the pre-existing *populated* table these
+-- guards exist for, the one-statement form would backfill NULL into every row
+-- and then abort on its own NOT NULL. It is split instead: add nullable,
+-- backfill from the address Supabase Auth already verified, then attach the
+-- default and the constraint. Nothing about the column as the create-table
+-- above declares it changes — only the one-time repair of a legacy table.
 alter table public.waitlist_signups
-  add column if not exists email text not null default (auth.jwt() ->> 'email');
+  add column if not exists email text;
+-- Matches nothing on the table created above (the column arrived populated)
+-- and nothing on a re-run (NOT NULL is attached three lines down). This has
+-- work to do exactly once: the run where a legacy table gains the column.
+update public.waitlist_signups w
+   set email = u.email
+  from auth.users u
+ where u.id = w.user_id
+   and w.email is null;
+alter table public.waitlist_signups
+  alter column email set default (auth.jwt() ->> 'email');
+-- Still loud, as the column comment intends: a legacy row belonging to a
+-- phone-only user has no address in auth.users either, and stopping here with
+-- "contains null values" beats recording a signup we could never reach.
+alter table public.waitlist_signups
+  alter column email set not null;
 alter table public.waitlist_signups
   add column if not exists source waitlist_source not null default 'wardrobe_grid';
 alter table public.waitlist_signups

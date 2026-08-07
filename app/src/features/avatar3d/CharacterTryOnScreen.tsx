@@ -1347,10 +1347,24 @@ export function CharacterTryOnScreen() {
       return;
     }
 
-    // Pieces of the edited outfit this screen can't wear ride along untouched
-    // — `updateOutfit` replaces items wholesale, so omitting them would delete
-    // them. Empty unless a saved outfit is open; see `carriedItems`.
-    const allItems = [...items, ...carriedItems];
+    /*
+     * Pieces of the edited outfit this screen can't wear ride along untouched
+     * — `updateOutfit` replaces items wholesale, so omitting them would delete
+     * them. Empty unless a saved outfit is open; see `carriedItems`.
+     *
+     * A carried piece stops being carried the moment the user equips it: the
+     * drawer equips into a slot and has no reason to reach into this list, so
+     * the same garment can sit in both. That is not a duplicate row —
+     * `createOutfit`/`updateOutfit` dedupe on `garment_id` for the
+     * `outfit_items` PK — but their tie-break keeps the highest `layer_order`,
+     * which on a tie is the stale carried copy, so the slot the user just put
+     * the garment in would lose. Drop the carried copy instead.
+     */
+    const wornGarmentIds = new Set(items.map((item) => item.garment_id));
+    const allItems = [
+      ...items,
+      ...carriedItems.filter((item) => !wornGarmentIds.has(item.garment_id)),
+    ];
 
     // Null on "save as new", which is the whole point of that path: it forces
     // the create branch while leaving the outfit being edited untouched.

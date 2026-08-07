@@ -79,21 +79,34 @@ sale as unattributed (still billable, but we lose the user-level funnel data).
 
 ### Option A — via an affiliate network you are already on
 
-**Effort on your side: essentially none.**
+**Effort on your side: essentially none. Effort on ours: a per-network adapter
+that is not written yet — see the caveat below before you plan around a date.**
 
 If you already run an affiliate programme through **Rakuten Advertising, CJ
 Affiliate, Impact, ShopStyle Collective, or Awin**, Selv applies as a
 publisher in your programme like any other. You approve us, we take your
 existing product feed and tracking links from the network, and conversions
-flow through the network's standard postback. You do not write any code, you
+come back to us through the network's postback. You do not write any code, you
 do not build a feed, and Selv is billed and paid through the same monthly
-process as every other publisher you already work with.
+process as every other publisher you already work with. **Nothing in this
+paragraph changes; the work sits entirely on our side of the line.**
+
+**The caveat, stated plainly: we have not built a network adapter yet.** Our
+postback endpoint currently speaks one payload format — our own — and each
+network has its own postback shape, its own signing scheme, and its own feed
+format (usually a scheduled pull, not a push). The database and secret
+handling are already shaped to hold several networks side by side, so this is
+adapter work rather than a redesign, but it *is* work, and the first brand
+onto a given network is the one that pays for it in lead time. Ask us for a
+date; do not assume day one. §3 lists this among the not-built items so the
+two halves of this document cannot drift apart.
 
 **Be aware that this is the realistic path for almost every brand.** If you
 are large enough to have an affiliate manager, the answer to "will you build a
 custom integration for a new app" is correctly *no*, and we are not going to
-ask. Option A exists so the answer can be yes on day one, at the cost of a
-percentage point of network fee and slightly coarser data.
+ask. Option A exists so the answer can be yes without touching your stack, at
+the cost of a percentage point of network fee, slightly coarser data, and the
+adapter lead time above.
 
 ### Option B — direct integration
 

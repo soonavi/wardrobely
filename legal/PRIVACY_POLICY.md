@@ -15,7 +15,7 @@
 
 - **We never use your photos or body measurements to train AI/ML models** — not ours, not a third party's, ever.
 - **We never sell your photos, measurements, or any personal data.** Full stop — no data brokers, no ad exchanges.
-- **You can delete your account, your photos, your measurements, and everything else in one tap**, from inside the app, at any time. No phone calls, no "please email us to confirm," no guilt trips.
+- **You can delete your account from inside the app, at any time** — one tap and one confirmation. No phone calls, no "please email us to confirm," no guilt trips. That removes your profile, your character, any optional height/weight, every garment photo and every outfit (§10); copies already written to encrypted backups, and the records our payment processors are legally required to keep, are purged on the schedule in §8 rather than instantly.
 - Your body is not the product here. The avatar is a styling tool, not a grading tool — we don't score, rank, or rate bodies, and neither should anyone using this app.
 
 These commitments are legally binding parts of this policy, not marketing copy — see [How to Delete Your Data](#how-to-delete-your-data) and [What We Never Do](#what-we-never-do-with-your-data) below.

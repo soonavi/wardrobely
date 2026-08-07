@@ -2,11 +2,22 @@
 
 Companion doc to the 7 ad creatives in production (5 statics + 2 videos). Covers strategy, targeting, copy, tracking, testing, and budget for the waitlist push. Read alongside `HANDOFF_MARKETING.md` and `MARKETING_STRATEGY.md` — this doc doesn't repeat brand/competitive background, it operationalizes it into a media plan.
 
-**Window:** today = Jul 14, 2026. Waitlist is live at **https://selv-waitlist.vercel.app**. Target app ship ≈ Jul 24, 2026. This plan covers the Jul 14–27 pre-launch + launch-week arc (matches Weeks 1–2 of the 4-week timeline in `MARKETING_STRATEGY.md` §7).
+> **⚠️ Flight window has lapsed — rebase the calendar before spending.** This plan
+> was written against `today = Jul 14, 2026` and a `Jul 24` ship target. As of
+> **2026-08-07** both dates are in the past while the app is still in pre-launch
+> hardening (see `LAUNCH_CHECKLIST.md` for what remains). Treat every
+> hard date below (§9's Jul 14–27 grid, the `_jul2026` campaign slug in §6) as a
+> **relative shape** — Day 1…Day 14, launch on Day 11 — and re-anchor Day 1 to
+> whatever the real first-post date turns out to be. The strategy, targeting,
+> creative copy, budget tiers, and test order are all still current and do not
+> need rewriting; only the calendar does. Do not allocate spend against the
+> literal dates.
+
+**Window:** originally scoped as today = Jul 14, 2026, waitlist live at **https://selv-waitlist.vercel.app**, target app ship ≈ Jul 24, 2026 — a 2-week pre-launch + launch-week arc (matches Weeks 1–2 of the 4-week timeline in `MARKETING_STRATEGY.md` §7). The waitlist is still live; the arc still applies, re-dated per the note above.
 
 **Platforms:** TikTok + Instagram Reels/Stories only, 9:16 vertical, organic + light paid (TikTok Spark Ads, Meta paid Reels/Stories). No feed/Pinterest ad units in this round.
 
-**Guardrails baked into every creative below:** avatar = styling tool, never body-evaluation (no scoring, no before/after body language, no weight-loss framing); Free tier caps at 25 wardrobe items — never say "unlimited wardrobe" without "Selv+"; Phase-2 social feed never implied as live.
+**Guardrails baked into every creative below:** avatar = styling tool, never body-evaluation (no scoring, no before/after body language, no weight-loss framing); Free tier caps at 25 wardrobe items and **Selv+ cannot be bought** — v1 ships no in-app purchase, the cap opens a waitlist sheet rather than a paywall (`app/src/features/paywall/SelvPlusWaitlistSheet.tsx`), so no creative may promise "unlimited wardrobe" *at all*, with or without the Selv+ qualifier, until a purchase flow exists; Phase-2 social feed never implied as live.
 
 ---
 
@@ -48,7 +59,7 @@ COLD REACH (organic FYP/Reels + paid Spark/boosted Reels)
 
 Nothing new needs to be built for the funnel itself — the landing page and referral mechanic already exist and work (confirmed in `landing/index.html`: the form posts to Supabase, issues a `referral_code`, reads an incoming `?ref=` param into `referred_by`, and shows a copyable invite link on success). The ad job is purely to drive cold reach into that existing hook → landing → referral chain, and to make sure paid traffic is tagged so it's distinguishable from organic once it lands.
 
-**One real gap this plan surfaces:** the landing page currently hardcodes `source: 'landing'` for every signup (see `landing/index.html` line ~525) — it does not read `utm_source`/`utm_medium`/`utm_content` from the URL. That means today, Supabase can't natively tell an organic TikTok signup from a paid IG signup. Section 6 below gives the exact fix and a manual workaround if the code patch isn't shipped in time.
+**Attribution is wired (this was previously flagged here as a gap — it has since shipped).** `landing/index.html`'s `getSource()` now reads the incoming query string and writes a real channel value into `waitlist.source`; only one narrow limitation remains, described in §6.
 
 ---
 
@@ -74,7 +85,7 @@ Nothing new needs to be built for the funnel itself — the landing page and ref
 - **Placements:** Reels + Stories only, no feed/Explore in this round.
 - **Objective:** Traffic (link clicks) as the safe default since no Meta Pixel is installed on the landing page yet; switch to Conversions once the pixel is added (see §6).
 - **Interests:** Fashion, Shein, Depop, Pinterest-fashion-board affinity, "online shopping - clothing," lookalike-adjacent interest stacking (competitor-app audiences like Whering/Acloset users aren't directly targetable as an interest, so approximate via fashion-app + shopping-app usage signals).
-- **Custom audience (available immediately, no pixel needed):** upload the Supabase waitlist email list as a Customer List once it clears ~500–1,000 rows, to seed a genuine lookalike. Below that size Meta won't build a reliable lookalike — don't burn budget trying before the list is big enough.
+- **Custom audience from the waitlist — BLOCKED, do not run this yet.** Uploading the Supabase waitlist emails to Meta as a Customer List is technically available with no pixel, and at ~500–1,000+ rows it would seed a genuine lookalike (below that Meta won't build a reliable one anyway). **It is blocked on consent, not on list size.** The signup form at `landing/index.html` collects an email with no marketing notice and no opt-in control, and `legal/PRIVACY_POLICY.md` gives *consent* as the lawful basis for marketing use of an email (§"Why We Use It"), states we don't share data with advertisers, and does not name Meta as a recipient in its processor list. Uploading the list today would therefore be a use the user never agreed to and a disclosure the policy contradicts. Before any export, all four must exist in writing: (1) a documented lawful basis for advertising use of waitlist emails; (2) a marketing notice plus an opt-in or opt-out control on the signup form itself, with the choice stored per row so the export can be filtered to it; (3) Meta named as a recipient in the privacy policy's processor list; (4) a deletion path that propagates a removal request to the uploaded audience, not just to Supabase. Until then, build paid audiences from the pixel and from platform-native video-engagement audiences (§3 TikTok) only. **Note this is a legal/policy decision, not a media-buying one — it needs Ben's sign-off and, realistically, a lawyer's, not a marketer's.**
 - **Age:** 18–24 core, 25–29 secondary (catches the "Jordan, 24" persona).
 
 ---
@@ -121,9 +132,9 @@ Read across the row for how each of the 7 creatives should be scheduled, boosted
 
 - **On-screen headline:** "turn your whole closet into an app."
 - **Visual note:** phone camera scanning a clothing rack → app UI populating with digitized 3D items.
-- **Caption:** "photograph what you already own. we turn it into a wardrobe you can actually play with. free to start (25 items), unlimited if you're obsessed. selv — join the waitlist. #selv #digitizeyourcloset #wardrobeapp #closetgoals #genzapp #waitlist"
+- **Caption:** "photograph what you already own. we turn it into a wardrobe you can actually play with. free, 25 items to start. selv — join the waitlist. #selv #digitizeyourcloset #wardrobeapp #closetgoals #genzapp #waitlist"
 - **CTA:** "Turn your closet into an app — join the waitlist"
-- **Claim check:** copy explicitly says "free to start (25 items)" — never drop the qualifier on this one, it's the creative most likely to get read as an unlimited-wardrobe promise if trimmed.
+- **Claim check:** the earlier cut of this caption ended "unlimited if you're obsessed," which sold a tier that does not exist — there is no Selv+ purchase in v1. Dropped rather than qualified: a "coming soon" upsell in a cold-reach caption reads as a live one. Keep "free, 25 items" intact; this is the creative most likely to be trimmed into an unlimited-wardrobe promise.
 
 ### S5 — Brand hero
 
@@ -136,8 +147,8 @@ Read across the row for how each of the 7 creatives should be scheduled, boosted
 
 | Time | Shot | On-screen caption |
 |---|---|---|
-| 0:00–0:01 | Hand holds phone, taps "upload photo"; jump-cut to face about to react | "I let an app build a 3D me—" |
-| 0:01–0:03 | Screen-record of upload processing — lavender/acid gradient loading animation | "wait for it" |
+| 0:00–0:01 | Hand holds phone, opens the character creator; jump-cut to face about to react | "I designed a 3D me—" |
+| 0:01–0:03 | Screen-record of the creator — skin tone, hair and body-type options flicking past over the lavender/acid gradient | "wait for it" |
 | 0:03–0:05 | 3D avatar materializes — glow/particle reveal, snaps into a full-body pose in an outfit | (no text — let the visual land) |
 | 0:05–0:07 | Cut to creator's genuine reaction (gasp/laugh), native selfie-cam framing, unpolished | — |
 | 0:07–0:09 | Side-by-side: creator + avatar twin | "…this is actually me??" |
@@ -145,6 +156,7 @@ Read across the row for how each of the 7 creatives should be scheduled, boosted
 
 - **Suggested sound:** trending reveal/transformation audio (suspense-to-payoff structure); re-check TikTok's Trending Sounds day-of-post rather than pre-locking a track.
 - **Caption:** "wait for the avatar reveal 😭 this is actually me?? selv waitlist is open — link in bio. #selv #avatarreveal #digitaltwin #3davatar #fyp #waitlist"
+- **Claim check:** the first two beats used to show a photo upload and an upload-processing spinner. That shot list is the retired flow — there is no photo step, so a creator shooting it literally would have to fake a screen the app does not have, which is both a false claim and unshootable. The reveal payoff is unchanged; only its cause moved from uploading to designing.
 
 ### V-B — Outfit-swap / "change clothes" trend (video, 6–10s, sound-led, captioned)
 
@@ -187,18 +199,16 @@ Read across the row for how each of the 7 creatives should be scheduled, boosted
 
 Full paid CTA link example (S3 on TikTok Spark): `https://selv-waitlist.vercel.app?utm_source=tiktok&utm_medium=paid_spark&utm_campaign=prelaunch_waitlist_jul2026&utm_content=tt_static_trybeforebuy_v1`
 
-### The tracking gap and the fix
+### What the landing page actually records
 
-**Problem:** `landing/index.html`'s submit handler currently hardcodes `source: 'landing'` on every insert (it never reads the incoming query string beyond `?ref=`). So today, every signup — organic, paid, whatever creative — lands in Supabase indistinguishable by channel.
+**Shipped.** `getSource()` in `landing/index.html` reads the query string on submit and joins the non-empty parts with `/` into `waitlist.source` — e.g. `tiktok/prelaunch_waitlist_jul2026/tt_static_trybeforebuy_v1` — falling back to `'landing'` for untagged traffic (direct, or an organic bio link with no UTM on it). Each part is trimmed to 40 characters.
 
-**Recommended fix (small patch to `landing/index.html`):** on page load, read `utm_source`/`utm_medium`/`utm_content` from `window.location.search` the same way `getIncomingRef()` already reads `ref`, and build the `source` value from them (e.g., join non-empty parts with `_` → `tiktok_paid_spark_tt_static_trybeforebuy_v1`), falling back to `'landing'` only when no UTM params are present (direct/organic-bio traffic with no link tool in front of it). This is a same-shape change to the existing `getIncomingRef()` function — low risk, ships in one deploy.
-
-**Interim workaround if the patch isn't shipped before the first ads go live:** stand up a free link-in-bio tool (Linktree/Beacons) with one button per active creative, each pointing at the UTM-tagged URL above; even without the code patch, this at least separates *paid button clicks* from *organic scroll-through visits* by referrer in Vercel/host analytics, even though Supabase `source` itself stays flat until the patch lands.
+**The one thing it does not capture is `utm_medium`.** `getSource()` reads `utm_source`, `utm_campaign` and `utm_content` only, so *organic vs. paid is not directly readable from the `source` column* — it has to be inferred from the creative ID in the `utm_content` slot, which is why the §6 naming convention prefixes platform and format. Keep tagging `utm_medium` on the links anyway (the ad platforms report on it even though Supabase drops it), and if paid/organic split becomes the question you actually need answered, adding `utm_medium` to that array is a one-line change.
 
 ### Reading results in Supabase
 
 - **Raw count:** `select count(*) from waitlist;` or call the existing `waitlist_count` RPC (same one the landing page polls for the live counter).
-- **By channel (after the fix above ships):** `select source, count(*) from waitlist group by source order by count(*) desc;`
+- **By channel:** `select source, count(*) from waitlist group by source order by count(*) desc;` — values are the `/`-joined UTM strings described above.
 - **Referral virality:** `select referred_by, count(*) from waitlist where referred_by is not null group by referred_by order by count(*) desc;` — surfaces your best organic distributors; cross-reference top `referred_by` codes against which creative first brought that referrer in (via their own `source`) to see which creative produces the most *referring* signups, not just the most signups.
 - **Daily pace:** `select date_trunc('day', created_at) as day, count(*) from waitlist group by 1 order by 1;` — the basic read for whether a boosted post moved the needle on a given day.
 
@@ -230,7 +240,9 @@ Every number above is a directional estimate, not a commitment — re-forecast a
 
 ---
 
-## 9. 2-Week Posting / Launch Calendar (Jul 14–27)
+## 9. 2-Week Posting / Launch Calendar (Day 1–14)
+
+**Read the Day column, not the Date column.** The Jul 14–27 dates below are the original anchoring and have lapsed (see the note at the top of this doc) — the *shape* is what matters: Day 11 is launch day, boost decisions land on Days 3/4 and 7. Re-anchor Day 1 to the real first-post date and shift the rest.
 
 Cadence: 2–3 organic posts/day across TikTok + IG Reels throughout. Boosting starts once a post shows an early 3-second-view-rate signal (don't wait for a fixed day if a post is clearly over-performing sooner).
 
@@ -261,5 +273,5 @@ Cadence: 2–3 organic posts/day across TikTok + IG Reels throughout. Boosting s
 - **Trending sound over original audio**, especially in the first two weeks — discoverability rides the sound, not the brand's own track. Re-check trend status day-of-post; a sound that was trending last week can already be dead.
 - **One idea per video.** Each of V-A and V-B does exactly one thing (reveal; swap) — resist the urge to cram the reveal *and* the try-before-you-buy pitch *and* the pricing into one clip.
 - **No body language, ever.** No before/after framing, no "glow up," no numeric scores, no comparison shots between two people's bodies — every creative sells the *outfit/avatar-as-you* experience, never a body outcome. This is a hard guardrail, not a style preference.
-- **Say the real price when price comes up.** "Free to start" or "free (25 items)" — never bare "unlimited wardrobe" without the subscription qualifier attached in the same breath.
+- **Only promise what a user can actually get today.** "Free" or "free (25 items)" — never "unlimited wardrobe" and never a Selv+ price, because Selv+ has no purchase flow in v1 and quoting a price for it in an ad is a claim the app cannot honour.
 - **Diverse bodies/skin tones across the creative set as a whole** — not token, structural: by the time all 7 creatives are in rotation, the set should visibly represent a range, not one body type repeated seven times.

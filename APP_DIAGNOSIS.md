@@ -1,7 +1,32 @@
 # Selv (app/) — Diagnosis & Build Plan
 
+> ## ⚠️ HISTORICAL SNAPSHOT — NOT A LIVE CHECKLIST
+>
+> **This audit describes the app as it stood before the 3D character-creator
+> pivot. Do not work from it.** It is kept because the *reasoning* is still
+> worth reading — why the 2D compositor was a dead end, why the free-tier cap
+> needed enforcing in two places, why the digitization pipeline was the real
+> gap. The *findings* are not current, and several items it calls P0-blocking
+> were fixed in the pivot.
+>
+> Concretely, the following statements below are now false. Onboarding is no
+> longer measurement-based: `src/features/onboarding/OnboardingScreen.tsx` is
+> deleted and `app/onboarding.tsx` renders the character creator, which takes
+> no photo and no measurements. (Height/weight and `build` survive as
+> *optional* profile fields edited in `ProfileScreen` — they no longer drive
+> the avatar's shape, which is why the §1 "branded wrong" bug note below is
+> also moot.) The 2D paper-doll try-on studio — `TryOnStudioScreen.tsx`,
+> `GarmentLayer.tsx`, `useTryOnStore.ts` — is deleted in favour of a 3D
+> avatar. And `supabase/functions/` does exist and is source-controlled
+> (`affiliate-postback`, `product-feed-ingest`, `delete-account`), so the
+> repeated "no Edge Functions anywhere in the repo" finding is stale.
+>
+> For current state, read `PRODUCT_SPEC.md`, `AVATAR_CREATOR_PLAN.md`, and the
+> code. Anything below that contradicts them loses.
+
 Read-only audit of the Expo/React Native app against `PRODUCT_SPEC.md` and
-`BUILD_ROADMAP_10DAY.md`. No code was changed to produce this document.
+`BUILD_ROADMAP_10DAY.md`, **as of the pre-pivot codebase**. No code was
+changed to produce this document.
 
 ---
 

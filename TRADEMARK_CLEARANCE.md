@@ -1,5 +1,36 @@
 # Trademark Clearance & Registration — Twinit (US)
 
+> ## ⚠️ SUPERSEDED — the product is now called **Selv**, not Twinit
+>
+> **Status as of 2026-08-07.** Twinit failed its knockout search and was dropped.
+> `TRADEMARK_KNOCKOUT.md` rates it **Medium–High risk** (an active digital-twin
+> PaaS company already trades as Twinit and owns `twinit.com`), and Round 2 in
+> `TRADEMARK_NAME_SHORTLIST.md` screened **Selv** as CLEAR and recommends leading
+> with it, Persa as backup.
+>
+> **Do not action the Twinit-specific steps below.** Do not run the Twinit
+> searches, do not file for Twinit, and above all do not spend on the `@twinit`
+> handles, the Twinit domains, or an app-store name reservation for Twinit —
+> step 3 of "Recommended path for Twinit" below tells you to buy those
+> "immediately," and that money would be spent on a dead name.
+>
+> **The Twinit references are deliberately left in place.** This is the clearance
+> record for a name that was considered and rejected; rewriting it as if Selv had
+> always been the candidate would destroy the evidence of what was actually
+> searched and when. Read the name "Twinit" throughout as *the candidate under
+> examination at the time*, not as the product.
+>
+> **What is still current and reusable:** everything name-independent — the
+> two-stage clear-then-register structure, the Class 9 / 42 / 35 analysis (and
+> why Class 25 is not needed), the Intent-to-Use vs. use-in-commerce basis, the
+> Trademark Center / ID.me filing mechanics, the 2026 fee figures, and the
+> 12–18 month timeline. Apply that method to **Selv** and its phonetic and near
+> variants (*selve, selva, sellv, zelv, celv*, and the root word *self*),
+> across USPTO, the App Store and Play, `@selv` handles, and the `selv.app` /
+> `selv.com` domains. A full USPTO clearance on Selv has **not** been run yet;
+> `TRADEMARK_NAME_SHORTLIST.md` is a preliminary web screen only, and its own
+> next-steps section is the live instruction.
+
 > **Not legal advice.** This is a practical roadmap. For a real clearance *opinion* and filing, use a trademark attorney or a reputable filing service. Fees/process below are current as of 2026 and can change.
 
 The goal has two stages: **(1) clear** the name (make sure you can safely use it), then **(2) register** it (own the exclusive right). Do the clearance first — it's cheap/free and can save you from building a brand on a name you'll have to abandon.

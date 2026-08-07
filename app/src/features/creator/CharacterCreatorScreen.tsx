@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -153,26 +153,49 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
   const [activeCategory, setActiveCategory] = useState<CategoryId>("body");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load any previously-saved customization on mount.
-  useEffect(() => {
-    let cancelled = false;
+  /**
+   * Bumped on every load so a response that lands after unmount — or after a
+   * Retry already superseded it — is discarded instead of setting state.
+   */
+  const loadIdRef = useRef(0);
 
-    (async () => {
-      const { data } = await getMyAvatar();
-      if (!cancelled && data?.customization) {
-        setCustomization(mergeCustomization(data.customization as Partial<Customization> | null));
-      }
-      if (!cancelled) {
-        setLoading(false);
-      }
-    })();
+  const loadAvatar = useCallback(async () => {
+    const loadId = ++loadIdRef.current;
+    setLoading(true);
+    setLoadError(null);
 
-    return () => {
-      cancelled = true;
-    };
+    const { data, error: fetchError } = await getMyAvatar();
+    if (loadId !== loadIdRef.current) return;
+
+    if (fetchError) {
+      // Do NOT fall through to DEFAULT_CUSTOMIZATION here. Save upserts
+      // exactly what this screen is holding (saveCustomization writes the
+      // whole `customization` column), so presenting defaults after a failed
+      // read would let one tap overwrite a character we merely failed to
+      // fetch. The loadError branch in render replaces the editor with a
+      // Retry, which is what actually keeps Save out of reach.
+      setLoadError(fetchError);
+    } else if (data?.customization) {
+      setCustomization(mergeCustomization(data.customization as Partial<Customization>));
+    }
+    // A *successful* query with no row — or a row predating the creator,
+    // whose `customization` defaults to `{}` — is a genuine new-user state
+    // (this screen is also the onboarding step), so defaults are correct and
+    // Save must stay available there.
+
+    setLoading(false);
   }, []);
+
+  // Load any previously-saved customization on mount, and again on Retry.
+  useEffect(() => {
+    loadAvatar();
+    return () => {
+      loadIdRef.current++;
+    };
+  }, [loadAvatar]);
 
   function update(patch: Partial<Customization>) {
     setCustomization((prev) => ({ ...prev, ...patch }));
@@ -195,12 +218,12 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
     if (!userId || saving) return;
 
     setSaving(true);
-    setError(null);
+    setSaveError(null);
 
-    const { error: saveError } = await saveCustomization(customization);
-    if (saveError) {
+    const { error: upsertError } = await saveCustomization(customization);
+    if (upsertError) {
       setSaving(false);
-      setError(saveError);
+      setSaveError(upsertError);
       return;
     }
 
@@ -214,7 +237,7 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
     setSaving(false);
 
     if (profileError) {
-      setError(profileError);
+      setSaveError(profileError);
       return;
     }
 
@@ -365,6 +388,31 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
     );
   }
 
+  // The editor (and with it Save) stays off-screen until a load succeeds —
+  // see loadAvatar above for why a failed read must not reach Save.
+  if (loadError) {
+    return (
+      <View style={[styles.loadingContainer, styles.errorFill]}>
+        <Text style={styles.errorTitle}>Couldn&apos;t load your character</Text>
+        <Text style={styles.errorMessage} numberOfLines={4}>
+          {loadError}
+        </Text>
+        <Pressable style={styles.retryButton} onPress={loadAvatar} accessibilityRole="button">
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </Pressable>
+        {!onboarding && (
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.errorBackButton}
+            accessibilityRole="button"
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -418,7 +466,7 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
 
         <View style={styles.optionsCard}>{renderCategory()}</View>
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        {saveError && <Text style={styles.errorText}>{saveError}</Text>}
 
         <Pressable
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -596,6 +644,37 @@ const styles = StyleSheet.create({
     color: colors.danger,
     textAlign: "center",
     marginBottom: spacing.sm,
+  },
+  errorFill: {
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    ...type.title,
+    fontSize: 20,
+    textAlign: "center",
+    marginBottom: spacing.xs,
+  },
+  errorMessage: {
+    ...type.subtle,
+    textAlign: "center",
+    marginBottom: spacing.md,
+  },
+  retryButton: {
+    backgroundColor: colors.acid,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: radius.md,
+    alignItems: "center",
+  },
+  retryButtonText: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  errorBackButton: {
+    marginTop: spacing.md,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   saveButton: {
     backgroundColor: colors.acid,

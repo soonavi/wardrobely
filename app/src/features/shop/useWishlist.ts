@@ -104,8 +104,19 @@ export function useWishlist(
     };
   }, [userId, productId, knowsInitial]);
 
+  // `pending` drives the disabled prop, but it cannot be the guard: it only
+  // lands on the next commit, so two presses dispatched before React re-renders
+  // share one `toggle` closure and both read `pending === false`. They share
+  // `wishlisted` too — it is set in the same batch as `pending`, so no render
+  // ever has one without the other — which means the second press repeats the
+  // *same* write rather than reversing it. Both writes are idempotent by design
+  // (see `addToWishlist`'s upsert), so this latch buys a spared round trip, not
+  // protection from a heart that disagrees with the stored row.
+  const inFlightRef = useRef(false);
+
   const toggle = useCallback(() => {
-    if (!userId || !productId || pending) return;
+    if (!userId || !productId || inFlightRef.current) return;
+    inFlightRef.current = true;
 
     const previous = wishlisted;
     const next = !previous;
@@ -134,10 +145,12 @@ export function useWishlist(
 
     write
       .then(({ error: writeError }) => {
+        inFlightRef.current = false;
         setPending(false);
         if (writeError) rollback(writeError);
       })
       .catch((thrown: unknown) => {
+        inFlightRef.current = false;
         setPending(false);
         rollback(
           thrown instanceof Error
@@ -145,7 +158,7 @@ export function useWishlist(
             : "Couldn't update your wishlist."
         );
       });
-  }, [userId, productId, pending, wishlisted]);
+  }, [userId, productId, wishlisted]);
 
   return { wishlisted, loading, pending, error, toggle };
 }

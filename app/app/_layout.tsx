@@ -107,7 +107,13 @@ export default function RootLayout() {
     if (inAuthGroup || inOnboarding) {
       router.replace("/(tabs)/wardrobe");
     }
-  }, [session, profile, profileLoaded, isLoading, segments, router]);
+    // `fontsLoaded` is in the deps because line 1 of this effect guards on it.
+    // Without it, a cold launch where the session and profile resolve BEFORE
+    // the font assets would run this effect once, bail at the guard, and never
+    // re-run — stranding the user on the initial route with no redirect. The
+    // spinner below hides it until fonts land, so the symptom is "app opens on
+    // the wrong screen", with nothing on screen to suggest routing was skipped.
+  }, [session, profile, profileLoaded, isLoading, fontsLoaded, segments, router]);
 
   if (isLoading || !profileLoaded || !fontsLoaded) {
     return (

@@ -1,7 +1,7 @@
 # App Store Listing — Selv
 
 **Working name:** Selv (see `MARKETING_STRATEGY.md` §3 — name not final; this whole file needs a find-and-replace pass once the name is legally cleared). All copy below is written to be swapped cleanly if the name changes.
-**Last updated:** 2026-07-20 (avatar approach updated)
+**Last updated:** 2026-08-07 (Selv+ paid-tier copy removed — v1 ships no IAP; see §5 and §11)
 
 > **Pivot note:** Selv no longer builds the avatar from a photo or body measurements — users **design a customizable 3D character** in a character creator (skin tone, face shape, eyes, hair, brows, facial hair, body type, accessories). Copy, screenshots, and permission strings below are updated so nothing implies a face/body scan for the avatar. Camera/photo-library access is for **garment photos only** (digitizing clothes). See `AVATAR_CREATOR_PLAN.md`.
 
@@ -59,12 +59,21 @@ wardrobe,outfit,avatar,3d,tryon,fashion,style,closet,thrift,ootd,stylist,capsule
 >
 > Selv is built to hype you up, not grade you. There's no "outfit score," no body-shaming filters, no beauty bias — just your character, your clothes, your call.
 >
-> **Free** includes your 3D avatar, up to 25 digitized wardrobe items, unlimited outfit mixing, and shareable fit cards.
+> Selv is **free**, and v1 has nothing to buy. You get your 3D character, up to 25 digitized wardrobe items, unlimited outfit mixing, try-on, and shareable fit cards.
 >
-> **Selv+** ($6.99/mo) unlocks unlimited wardrobe items, unlimited try-on of anything in our catalog, wardrobe analytics (cost-per-wear, most/least worn), and priority avatar rendering.
->
-> ---
-> *Selv+ is an auto-renewing subscription billed monthly through your Apple ID unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings → [your name] → Subscriptions. See our Terms of Use and Privacy Policy for details.*
+> **Selv+ is coming.** Unlimited wardrobe items, wardrobe analytics, and more are in the works — hit the 25-item mark and you can join the list to hear first. Joining is free and is not a purchase.
+
+**Do not restore the paid-tier block here until IAP actually ships.** This section
+previously read "**Selv+** ($6.99/mo) unlocks unlimited wardrobe items…" followed by
+standard auto-renewal boilerplate. There is no subscription to sell: v1 ships no
+in-app purchase, no StoreKit product, and no RevenueCat entitlement, and
+`app/src/lib/pricing.ts` hardcodes every user to the free tier because there is no
+entitlement to read. Hitting the 25-item cap opens `SelvPlusWaitlistSheet.tsx`, not a
+paywall. Listing metadata that advertises a subscription the binary cannot sell is a
+Guideline 2.3.1 (accurate metadata) problem *and* a 3.1.2 (subscription disclosure)
+problem — the disclosure requirements below only attach once there is something to
+disclose. When IAP does ship, the price, the auto-renewal terms, and the paywall
+screen all land in the same change.
 
 ## 6. What's New (v1.0 release notes)
 
@@ -126,16 +135,16 @@ Production notes: keep device-frame chrome consistent across all 5 (same status 
 
 ## 10. Export Compliance / Encryption
 
-Selv only uses standard HTTPS/TLS for network calls (Supabase, RevenueCat, remove.bg via the Edge Function) — no proprietary or non-exempt encryption is implemented in the app itself. Per [Apple's export compliance guidance](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations), OS-provided encryption (i.e., HTTPS) is **exempt** from export documentation requirements.
+Selv only uses standard HTTPS/TLS for network calls (Supabase, and the Supabase Edge Functions) — no proprietary or non-exempt encryption is implemented in the app itself. (This previously also listed RevenueCat and remove.bg; neither is a dependency of the shipping build.) Per [Apple's export compliance guidance](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations), OS-provided encryption (i.e., HTTPS) is **exempt** from export documentation requirements.
 
 **Answer:** set `ITSAppUsesNonExemptEncryption` to `false` in `Info.plist` (shown in §8 above) so App Store Connect doesn't re-prompt the encryption questionnaire on every build submission. If a future feature adds proprietary/custom encryption (unlikely for this stack), this value and the answer here must be revisited together.
 
 ## 11. Category & Business Model Declaration (submission checklist items)
 
 - **Primary category:** Lifestyle (or Shopping — pick based on which competitor placement, Whering/Acloset vs. Depop, tests better; do not use Health & Fitness — the avatar is no longer body/measurement-driven, but a wardrobe/fashion app still fits Lifestyle/Shopping better and avoids inviting health-app review scrutiny)
-- **In-App Purchase:** Selv+ subscription must be configured as an auto-renewable subscription product in App Store Connect and purchased **only** through StoreKit/Apple IAP — per [Guideline 3.1.1](https://developer.apple.com/app-store/review/guidelines/), any digital subscription must use Apple's IAP; you may not offer an external checkout for it. RevenueCat wraps StoreKit for cross-platform entitlement management — it does not replace it.
-- **Try-before-you-buy / affiliate purchases:** these are physical goods (real apparel/footwear shipped by a third-party retailer), so external checkout/links are permitted under Guideline 3.1.1's physical-goods carve-out. Keep the UI clearly distinct from the Selv+ paywall so a reviewer never mistakes one purchase flow for the other.
-- **Subscription disclosure:** the Selv+ paywall screen must show, on the same screen as the purchase button: subscription length ("Billed monthly"), price, auto-renewal terms, and a link to Terms of Use/Privacy Policy — required under Guideline 3.1.2.
+- **In-App Purchase: none in v1.** Declare no IAP products. The app sells nothing — there is no StoreKit product, no RevenueCat dependency, and no entitlement check; the wardrobe cap opens a waitlist sheet. Answer the business-model questions accordingly rather than pre-declaring a subscription that does not exist, which invites a reviewer to look for a purchase flow they will not find.
+- **Try-before-you-buy / affiliate purchases:** these are physical goods (real apparel/footwear shipped by a third-party retailer), so external checkout/links are permitted under Guideline 3.1.1's physical-goods carve-out. This is the *only* commerce surface in v1, which also removes the old risk of a reviewer confusing it with a Selv+ paywall — there isn't one.
+- **When Selv+ ships (not v1), all of this attaches at once:** an auto-renewable subscription product configured in App Store Connect and purchased **only** through StoreKit/Apple IAP per [Guideline 3.1.1](https://developer.apple.com/app-store/review/guidelines/) (RevenueCat wraps StoreKit for cross-platform entitlements — it does not replace it); a paywall screen showing subscription length, price, auto-renewal terms and a Terms/Privacy link on the same screen as the purchase button per Guideline 3.1.2; the paid-tier copy restored to §5; and UI that keeps the paywall visually distinct from the affiliate checkout. Shipping any one of these without the others is what gets a build rejected.
 
 ## 12. Sources
 - [Apple — App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)

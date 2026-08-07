@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -61,6 +61,40 @@ import { useWishlist } from "./useWishlist";
  */
 const WAITLIST_SOURCE: WaitlistSource = "shop_save";
 
+/**
+ * Last gate before a catalog-derived string is handed to the operating system.
+ *
+ * `createCheckoutLink` assembles its URL from two catalog columns — the
+ * product's `product_url` and the brand's `affiliate_url_template` — and only
+ * the first is scheme-checked on the way in, by `validateHttpsUrl()` in
+ * supabase/functions/product-feed-ingest. Nothing checks the template: it has
+ * no column constraint, it is written by hand rather than imported from a
+ * feed, and `buildAffiliateUrl` substitutes into it and returns the result
+ * verbatim. `Linking.openURL` runs whichever handler the scheme names, so one
+ * mistyped template is the difference between opening a store and firing a
+ * `javascript:`, `file:` or arbitrary deep-link payload — the exact schemes
+ * the ingest validator's comment explains it exists to keep out.
+ *
+ * An affiliate destination is always an https page, so this cannot reject a
+ * working link. `URL` is available because lib/supabase.ts loads
+ * react-native-url-polyfill/auto and this screen depends on it transitively.
+ *
+ * The durable home for this check is `buildAffiliateUrl` itself, next to the
+ * branch that produces the unchecked string, so that the other two Buy buttons
+ * (CharacterTryOnScreen, GarmentDetailScreen) inherit it instead of each
+ * growing their own copy. Until it moves there this is the only guarded call
+ * site — a host allowlist is deliberately *not* part of it, because partners
+ * and their tracking domains are onboarded through the database and a list
+ * compiled into the app would reject every brand added after the last release.
+ */
+function isOpenableCheckoutUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function ProductDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -74,7 +108,6 @@ export function ProductDetailScreen() {
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [buying, setBuying] = useState(false);
   const [waitlistVisible, setWaitlistVisible] = useState(false);
@@ -109,13 +142,6 @@ export function ProductDetailScreen() {
       loadProduct();
     }, [loadProduct])
   );
-
-  // Reset the size only when the product itself changes — refocusing after a
-  // try-on or a trip to the brand's site should not silently clear a choice
-  // the user already made.
-  useEffect(() => {
-    setSelectedSize(null);
-  }, [id]);
 
   /** Hero + thumbnails. Deduped because feeds often repeat the primary shot in `extra_image_urls`. */
   const images = useMemo(() => {
@@ -207,14 +233,6 @@ export function ProductDetailScreen() {
   const handleBuy = useCallback(async () => {
     if (!product || !userId || buying) return;
 
-    if (product.sizes.length > 0 && !selectedSize) {
-      Alert.alert(
-        "Pick a size first",
-        "Choose a size so we send you to the right product page."
-      );
-      return;
-    }
-
     setBuying(true);
     const { data, error: linkError } = await createCheckoutLink({
       userId,
@@ -234,6 +252,19 @@ export function ProductDetailScreen() {
       return;
     }
 
+    if (!isOpenableCheckoutUrl(data.url)) {
+      // Not "please try again": a rejected scheme means the catalog row itself
+      // is wrong, so every retry produces the same URL. The click is already
+      // recorded at this point, which is the right way round — a click we
+      // refused to open is visible in the funnel as a click with no
+      // conversion, and that is how a bad template gets noticed.
+      Alert.alert(
+        "Couldn't open the store",
+        `This item's link to ${product.brand.name} isn't valid, so we didn't open it. Try another item.`
+      );
+      return;
+    }
+
     try {
       // The *system* browser, via react-native's Linking — not expo-web-browser.
       // Two reasons: it avoids adding a dependency, and an affiliate network's
@@ -247,7 +278,7 @@ export function ProductDetailScreen() {
         "We couldn't open your browser. Please try again."
       );
     }
-  }, [product, userId, buying, selectedSize]);
+  }, [product, userId, buying]);
 
   if (!userId) {
     return (
@@ -444,31 +475,38 @@ export function ProductDetailScreen() {
 
         {product.sizes.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>Size</Text>
+            {/*
+              Availability, not a picker — and the label says so, because the
+              difference is the whole point. `brand_products.sizes` is a bare
+              `text[]`: there is no per-size variant id and no per-size URL,
+              and the checkout contract carries neither (`buildAffiliateUrl`
+              takes a product url, a click token and the brand's wrapper
+              template — see lib/api/affiliate.ts). Every size on this row
+              therefore resolves to the same `product_url`.
+
+              This used to be a set of selectable chips that blocked the Buy
+              button until one was tapped, telling the user we needed it to
+              "send you to the right product page". We can't, and never could:
+              the selection reached nothing but its own state, so the gate
+              charged a tap on the one action that earns money and returned
+              nothing for it. Sizing is chosen on the brand's own page, which
+              is where the stock actually lives.
+
+              Make these interactive again only when a size can change the
+              destination — i.e. when the catalog carries a variant id or a
+              per-size url *and* the checkout contract accepts one.
+            */}
+            <Text style={styles.sectionLabel}>Available sizes</Text>
             <View style={styles.sizeWrap}>
-              {product.sizes.map((size) => {
-                const isActive = size === selectedSize;
-                return (
-                  <Pressable
-                    key={size}
-                    style={[styles.sizeChip, isActive && styles.sizeChipActive]}
-                    onPress={() => setSelectedSize(isActive ? null : size)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isActive }}
-                    accessibilityLabel={`Size ${size}`}
-                  >
-                    <Text
-                      style={[
-                        styles.sizeChipText,
-                        isActive && styles.sizeChipTextActive,
-                      ]}
-                    >
-                      {size}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {product.sizes.map((size) => (
+                <View key={size} style={styles.sizeChip}>
+                  <Text style={styles.sizeChipText}>{size}</Text>
+                </View>
+              ))}
             </View>
+            <Text style={styles.sizeNote}>
+              Pick your size on {product.brand.name}&apos;s page at checkout.
+            </Text>
           </>
         )}
 
@@ -768,17 +806,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  sizeChipActive: {
-    borderColor: colors.ink,
-    backgroundColor: colors.ink,
-  },
   sizeChipText: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.ink,
   },
-  sizeChipTextActive: {
-    color: colors.onInk,
+  sizeNote: {
+    ...type.subtle,
+    marginTop: spacing.sm,
   },
   tryOnButton: {
     backgroundColor: colors.acid,
