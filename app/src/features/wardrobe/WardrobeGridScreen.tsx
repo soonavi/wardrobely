@@ -96,6 +96,15 @@ export function WardrobeGridScreen() {
       // rather than at the button.
       if (!countError) {
         setTotalGarments(total);
+      } else {
+        // Cleared, not left at the previous value. A retained count is worse
+        // than no count in the direction that matters: a stale total sitting
+        // at the cap produces a *false block* — the waitlist sheet shown to
+        // someone who has since deleted items and genuinely has room — and no
+        // later check can undo a button the user was never allowed to press.
+        // An unknown total fails the other way, and createGarment still
+        // refuses anyone actually at the limit.
+        setTotalGarments(null);
       }
 
       setLoading(false);

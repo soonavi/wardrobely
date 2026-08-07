@@ -200,40 +200,50 @@ export function ProductDetailScreen() {
     if (!product || !userId || buying) return;
 
     setBuying(true);
-    const { data, error: linkError } = await createCheckoutLink({
-      userId,
-      product,
-      source: "shop",
-    });
-    setBuying(false);
-
-    if (linkError || !data) {
-      // createCheckoutLink deliberately returns no URL in two cases: the click
-      // couldn't be recorded (an untracked click-out looks identical to a
-      // successful one and silently loses the commission), or the assembled
-      // URL failed `isOpenableCheckoutUrl` and must never reach the OS. Both
-      // arrive here as a message written for a shopper, so this screen doesn't
-      // re-derive either check — doing that per-screen is what previously left
-      // the other two Buy buttons unguarded.
-      Alert.alert(
-        "Couldn't open the store",
-        linkError ?? "We couldn't create a checkout link. Please try again."
-      );
-      return;
-    }
-
     try {
-      // The *system* browser, via react-native's Linking — not expo-web-browser.
-      // Two reasons: it avoids adding a dependency, and an affiliate network's
-      // tracking cookie set in the system browser persists into the same
-      // browser the user checks out in later. An in-app web view sandboxes that
-      // cookie and can drop the attribution the click was minted for.
-      await Linking.openURL(data.url);
-    } catch {
-      Alert.alert(
-        "Couldn't open the store",
-        "We couldn't open your browser. Please try again."
-      );
+      const { data, error: linkError } = await createCheckoutLink({
+        userId,
+        product,
+        source: "shop",
+      });
+
+      if (linkError || !data) {
+        // createCheckoutLink deliberately returns no URL in two cases: the
+        // click couldn't be recorded (an untracked click-out looks identical
+        // to a successful one and silently loses the commission), or the
+        // assembled URL failed `isOpenableCheckoutUrl` and must never reach
+        // the OS. Both arrive here as a message written for a shopper, so this
+        // screen doesn't re-derive either check — doing that per-screen is
+        // what previously left the other two Buy buttons unguarded.
+        Alert.alert(
+          "Couldn't open the store",
+          linkError ?? "We couldn't create a checkout link. Please try again."
+        );
+        return;
+      }
+
+      try {
+        // The *system* browser, via react-native's Linking — not
+        // expo-web-browser. Two reasons: it avoids adding a dependency, and an
+        // affiliate network's tracking cookie set in the system browser
+        // persists into the same browser the user checks out in later. An
+        // in-app web view sandboxes that cookie and can drop the attribution
+        // the click was minted for.
+        await Linking.openURL(data.url);
+      } catch {
+        Alert.alert(
+          "Couldn't open the store",
+          "We couldn't open your browser. Please try again."
+        );
+      }
+    } finally {
+      // Held for the WHOLE handoff, not just the network call. Clearing it the
+      // moment createCheckoutLink resolved re-enabled the button while
+      // Linking.openURL was still awaiting the OS, and a second tap in that
+      // window mints a second affiliate click for one purchase — two click
+      // rows competing to be credited for one conversion, which corrupts the
+      // very attribution the click exists to establish.
+      setBuying(false);
     }
   }, [product, userId, buying]);
 

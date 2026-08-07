@@ -19,6 +19,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 2
+          # Without this, checkout writes GITHUB_TOKEN into .git/config so later
+          # steps can push. Nothing here pushes — the job only reads the diff and
+          # comments through the action's own input — but the third-party step
+          # below shares this workspace and could read the token straight out of
+          # the config file. Pinning that action to a SHA bounds *which* code
+          # runs; this bounds what that code can reach if the pin is ever bumped
+          # to something hostile.
+          persist-credentials: false
 
       - uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda # main @ 2026-02-11 (upstream publishes no tags)
         with:

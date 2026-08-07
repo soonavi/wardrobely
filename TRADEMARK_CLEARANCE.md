@@ -30,7 +30,7 @@
 > `selv.com` domains. A full USPTO clearance on Selv has **not** been run yet;
 > `TRADEMARK_NAME_SHORTLIST.md` is a preliminary web screen only, and its own
 > next-steps section is the live instruction.
-
+>
 > **Not legal advice.** This is a practical roadmap. For a real clearance *opinion* and filing, use a trademark attorney or a reputable filing service. Fees/process below are current as of 2026 and can change.
 
 The goal has two stages: **(1) clear** the name (make sure you can safely use it), then **(2) register** it (own the exclusive right). Do the clearance first — it's cheap/free and can save you from building a brand on a name you'll have to abandon.
