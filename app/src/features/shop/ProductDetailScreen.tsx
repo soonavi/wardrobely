@@ -61,40 +61,6 @@ import { useWishlist } from "./useWishlist";
  */
 const WAITLIST_SOURCE: WaitlistSource = "shop_save";
 
-/**
- * Last gate before a catalog-derived string is handed to the operating system.
- *
- * `createCheckoutLink` assembles its URL from two catalog columns — the
- * product's `product_url` and the brand's `affiliate_url_template` — and only
- * the first is scheme-checked on the way in, by `validateHttpsUrl()` in
- * supabase/functions/product-feed-ingest. Nothing checks the template: it has
- * no column constraint, it is written by hand rather than imported from a
- * feed, and `buildAffiliateUrl` substitutes into it and returns the result
- * verbatim. `Linking.openURL` runs whichever handler the scheme names, so one
- * mistyped template is the difference between opening a store and firing a
- * `javascript:`, `file:` or arbitrary deep-link payload — the exact schemes
- * the ingest validator's comment explains it exists to keep out.
- *
- * An affiliate destination is always an https page, so this cannot reject a
- * working link. `URL` is available because lib/supabase.ts loads
- * react-native-url-polyfill/auto and this screen depends on it transitively.
- *
- * The durable home for this check is `buildAffiliateUrl` itself, next to the
- * branch that produces the unchecked string, so that the other two Buy buttons
- * (CharacterTryOnScreen, GarmentDetailScreen) inherit it instead of each
- * growing their own copy. Until it moves there this is the only guarded call
- * site — a host allowlist is deliberately *not* part of it, because partners
- * and their tracking domains are onboarded through the database and a list
- * compiled into the app would reject every brand added after the last release.
- */
-function isOpenableCheckoutUrl(url: string): boolean {
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export function ProductDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -242,25 +208,16 @@ export function ProductDetailScreen() {
     setBuying(false);
 
     if (linkError || !data) {
-      // createCheckoutLink deliberately returns no URL when the click can't be
-      // recorded — an untracked click-out looks identical to a successful one
-      // and silently loses the commission, so failing visibly is correct.
+      // createCheckoutLink deliberately returns no URL in two cases: the click
+      // couldn't be recorded (an untracked click-out looks identical to a
+      // successful one and silently loses the commission), or the assembled
+      // URL failed `isOpenableCheckoutUrl` and must never reach the OS. Both
+      // arrive here as a message written for a shopper, so this screen doesn't
+      // re-derive either check — doing that per-screen is what previously left
+      // the other two Buy buttons unguarded.
       Alert.alert(
         "Couldn't open the store",
         linkError ?? "We couldn't create a checkout link. Please try again."
-      );
-      return;
-    }
-
-    if (!isOpenableCheckoutUrl(data.url)) {
-      // Not "please try again": a rejected scheme means the catalog row itself
-      // is wrong, so every retry produces the same URL. The click is already
-      // recorded at this point, which is the right way round — a click we
-      // refused to open is visible in the funnel as a click with no
-      // conversion, and that is how a bad template gets noticed.
-      Alert.alert(
-        "Couldn't open the store",
-        `This item's link to ${product.brand.name} isn't valid, so we didn't open it. Try another item.`
       );
       return;
     }

@@ -1,5 +1,37 @@
 # Selv — 10-Day Build Roadmap (TestFlight MVP)
 
+> ## ⚠️ HISTORICAL PLAN — the build diverged from it
+>
+> **Status as of 2026-08-07.** This is the 10-day plan as written *before* the
+> 3D character-creator pivot. It is kept because the **sequencing logic** is
+> still the valuable part — spike the riskiest 3D assumption on Day 1, gate on
+> it, and cut scope at a named checkpoint instead of letting it slip silently.
+> The **task list is not a current to-do list.** Do not work items off it
+> without checking the code first.
+>
+> Three of its premises recur throughout the days below and are now false:
+>
+> 1. **Onboarding takes no measurements.** Day 4 has been rewritten below to
+>    describe what actually shipped. Every *other* measurement reference —
+>    Day 3's measurement→shape formula, Day 10's "body measurement data"
+>    privacy-label note, and the Definition of Done — describes a flow that no
+>    longer exists. Height/weight survive only as *optional* profile fields;
+>    they do not drive the avatar's shape.
+> 2. **remove.bg was never integrated.** It is not a dependency in
+>    `app/package.json`, and there is no `garment-ingest` Edge Function. The
+>    Edge Functions that do exist and are source-controlled are
+>    `affiliate-postback`, `product-feed-ingest`, and `delete-account`
+>    (`app/supabase/functions/`). Garments are stored as uploaded photos with
+>    metadata, so Day 5's background-removal step is **unbuilt, not done**.
+> 3. **"Automated test suite" is no longer cut.** The repo has a jest-expo
+>    harness — 237 tests across 6 suites, `npm test` in `app/` — so ignore its
+>    appearance in "What We Cut" below. Crash reporting and analytics (Day 9,
+>    and the last line of the Definition of Done) genuinely *are* still
+>    unwired.
+>
+> For current state read `PRODUCT_SPEC.md`, `AVATAR_CREATOR_PLAN.md`, and the
+> code. Anything below that contradicts them loses.
+
 Companion to `PRODUCT_SPEC.md`. This is a day-by-day plan to ship an installable iOS TestFlight build in 10 working days.
 
 ## Assumptions

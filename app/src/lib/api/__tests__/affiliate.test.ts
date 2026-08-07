@@ -14,7 +14,7 @@
 // standing up a real client just to import a pure function.
 jest.mock("../../supabase", () => ({ supabase: {} }));
 
-import { buildAffiliateUrl } from "../affiliate";
+import { buildAffiliateUrl, isOpenableCheckoutUrl } from "../affiliate";
 
 // In the app, `URL` comes from react-native-url-polyfill (imported by
 // lib/supabase.ts). Node's built-in URL implements the same WHATWG spec, so
@@ -212,5 +212,73 @@ describe("buildAffiliateUrl — malformed input", () => {
     expect(
       buildAffiliateUrl("not a url", TOKEN, "https://go.network.com/c?u={URL}")
     ).toBe("https://go.network.com/c?u=not%20a%20url");
+  });
+});
+
+/**
+ * The gate between a catalog-derived string and `Linking.openURL`.
+ *
+ * `buildAffiliateUrl` can emit a non-https string two ways: a brand's
+ * `affiliate_url_template` is hand-written with no column constraint and is
+ * substituted into verbatim, and the direct branch returns `productUrl`
+ * unchanged when it doesn't parse. `Linking.openURL` runs whichever handler
+ * the scheme names, so this is what stops a mistyped template from firing a
+ * `javascript:` or deep-link payload.
+ *
+ * These assert the SHAPE of the rule (https only, parse failures rejected),
+ * not a list of blocked schemes — an allowlist of one is the point.
+ */
+describe("isOpenableCheckoutUrl", () => {
+  it("accepts https, the only scheme an affiliate destination uses", () => {
+    expect(isOpenableCheckoutUrl("https://brand.example/p/1")).toBe(true);
+    expect(
+      isOpenableCheckoutUrl("https://go.network.com/c?u=https%3A%2F%2Fb.test&subid=abc")
+    ).toBe(true);
+  });
+
+  it("rejects plain http, so a downgraded link can't leak the subid in clear", () => {
+    expect(isOpenableCheckoutUrl("http://brand.example/p/1")).toBe(false);
+  });
+
+  it("rejects the schemes that make openURL dangerous", () => {
+    // Each of these parses as a valid URL — `new URL()` alone would accept
+    // them. Only the protocol check refuses them.
+    expect(isOpenableCheckoutUrl("javascript:alert(1)")).toBe(false);
+    expect(isOpenableCheckoutUrl("file:///etc/passwd")).toBe(false);
+    expect(isOpenableCheckoutUrl("data:text/html,<script>alert(1)</script>")).toBe(false);
+    expect(isOpenableCheckoutUrl("selv://product/1")).toBe(false);
+    expect(isOpenableCheckoutUrl("tel:+15551234567")).toBe(false);
+  });
+
+  it("rejects anything that isn't a URL, including the unchanged-on-failure case", () => {
+    // buildAffiliateUrl's direct branch returns productUrl verbatim when it
+    // can't parse, so this exact string can reach the gate.
+    expect(isOpenableCheckoutUrl("not a url")).toBe(false);
+    expect(isOpenableCheckoutUrl("")).toBe(false);
+    expect(isOpenableCheckoutUrl("   ")).toBe(false);
+    expect(isOpenableCheckoutUrl("//brand.example/p/1")).toBe(false);
+  });
+
+  it("is case-insensitive about the scheme, as the URL parser normalises it", () => {
+    expect(isOpenableCheckoutUrl("HTTPS://brand.example/p/1")).toBe(true);
+    expect(isOpenableCheckoutUrl("JavaScript:alert(1)")).toBe(false);
+  });
+
+  it("accepts what buildAffiliateUrl actually produces for a real partner", () => {
+    expect(
+      isOpenableCheckoutUrl(
+        buildAffiliateUrl("https://brand.example/p/1", "tok_123", null)
+      )
+    ).toBe(true);
+  });
+
+  it("rejects what buildAffiliateUrl produces from a malformed template", () => {
+    // The failure this whole gate exists for: a brand row whose template was
+    // typed wrong. buildAffiliateUrl substitutes and returns it verbatim.
+    expect(
+      isOpenableCheckoutUrl(
+        buildAffiliateUrl("https://brand.example/p/1", "tok_123", "javascript:open({URL})")
+      )
+    ).toBe(false);
   });
 });

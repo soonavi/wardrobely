@@ -124,8 +124,54 @@ export function buildAffiliateUrl(
   }
 }
 
+/**
+ * Last gate before a catalog-derived string is handed to the operating system.
+ *
+ * The URL above is assembled from two catalog columns — the product's
+ * `product_url` and the brand's `affiliate_url_template` — and only the first
+ * is scheme-checked on the way in, by `validateHttpsUrl()` in
+ * supabase/functions/product-feed-ingest. Nothing checks the template: it has
+ * no column constraint and is written by hand rather than imported from a
+ * feed, and the branch above substitutes into it and returns the result
+ * verbatim. The direct branch can also hand back a `productUrl` that isn't a
+ * URL at all, since its `catch` returns the input unchanged.
+ *
+ * `Linking.openURL` runs whichever handler the scheme names, so one mistyped
+ * template is the difference between opening a store and firing a
+ * `javascript:`, `file:` or arbitrary deep-link payload — the exact schemes
+ * the ingest validator exists to keep out.
+ *
+ * This lives here, beside the code that produces the unchecked string and
+ * inside the one function all three Buy buttons go through
+ * (ProductDetailScreen, CharacterTryOnScreen, GarmentDetailScreen), rather
+ * than in any single screen. A screen-local copy protects one flow and leaves
+ * the other two open — which is exactly the state this replaced.
+ *
+ * An affiliate destination is always an https page, so this cannot reject a
+ * working link. A host allowlist is deliberately NOT part of it: partners and
+ * their tracking domains are onboarded through the database, and a list
+ * compiled into the app would reject every brand added after the last release.
+ *
+ * Exported for unit testing — see __tests__/affiliate.test.ts.
+ */
+export function isOpenableCheckoutUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /** Shown when we can't mint a click, so the Buy tap fails visibly rather than silently. */
 const GENERIC_CLICK_ERROR = "Couldn't open this item right now. Please try again.";
+
+/**
+ * Shown when the assembled URL isn't safe to open. Deliberately not "try
+ * again": a rejected scheme means the catalog row itself is wrong, so every
+ * retry rebuilds the identical URL.
+ */
+const UNSAFE_LINK_ERROR =
+  "This item's link isn't valid, so we didn't open it. Try another item.";
 
 /** Shown when the catalog row is gone, withdrawn, or its brand isn't live. */
 const UNAVAILABLE_CLICK_ERROR = "This item is no longer available.";
@@ -235,6 +281,16 @@ export async function createCheckoutLink(
     click.click_token,
     product.brand.affiliate_url_template
   );
+
+  if (!isOpenableCheckoutUrl(url)) {
+    // The click row is already written at this point, and that is the right
+    // way round: a click we refused to open shows up in the funnel as a click
+    // with no conversion, which is how a bad template gets noticed at all.
+    // Returning an error rather than the URL means no caller can open it —
+    // the alternative, trusting each screen to re-check, is what let two of
+    // the three Buy buttons through unguarded.
+    return { data: null, error: UNSAFE_LINK_ERROR };
+  }
 
   return {
     data: { url, clickToken: click.click_token, clickId: click.id },
