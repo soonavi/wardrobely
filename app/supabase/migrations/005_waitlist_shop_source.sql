@@ -1,0 +1,67 @@
+-- ===========================================================================
+-- 005_waitlist_shop_source.sql — third entry point into the Selv+ waitlist
+-- ===========================================================================
+-- Applies on top of 004_waitlist.sql and can be re-run safely: the single
+-- statement below is guarded with `if not exists`, matching 002/003/004 so a
+-- partial failure can be fixed and the whole file re-applied.
+--
+-- WHY
+-- 004 shipped the waitlist with two sources because two screens could produce
+-- one: the wardrobe grid's "+" at the cap, and the add-garment screen's
+-- save-time guard. Its enum comment named the missing third explicitly — the
+-- Shop's `saveProductToWardrobe` (src/lib/api/shop.ts) re-checks the same
+-- 25-item cap before inserting, "and has no waitlist affordance yet".
+--
+-- It does now. src/features/shop/ProductDetailScreen.tsx used to surface the
+-- shared `wardrobeLimitMessage()` copy in a bare Alert, which — once that copy
+-- was reworded to "you can join the list" — became an invitation with nothing
+-- to tap. It now opens the same SelvPlusWaitlistSheet the other two do, and
+-- records `shop_save`.
+--
+-- The value is worth its own migration rather than being folded into a future
+-- one because 004's whole argument for the `source` column is that *where*
+-- demand appears matters more than how much of it there is. "Ran out of room
+-- while saving something I found in the Shop" is a materially different
+-- signal from "ran out of room photographing my own clothes" — the first is a
+-- shopper who wants more Selv, the second is someone who has hit the ceiling
+-- of what they already own. Collapsing them into `add_garment` would have
+-- typechecked, needed no migration, and destroyed the distinction.
+--
+-- STILL NOT MIRRORED INTO schema.sql. 004 asked for its table, enum, grants
+-- and policies to be added there next time schema.sql is touched; that is
+-- still outstanding, and this value belongs in the same section when it
+-- happens. src/lib/database.types.ts likewise declares `WaitlistSource` by
+-- hand and needs `"shop_save"` added to the union — until it is, the app
+-- carries a documented cast at the one call site that emits this value
+-- (WAITLIST_SOURCE in ProductDetailScreen.tsx).
+-- ===========================================================================
+
+-- --- waitlist_source: add 'shop_save' -------------------------------------
+-- ON THE TRANSACTION-BLOCK CAVEAT, since 004 flagged it when it wrote this
+-- statement out in advance: PostgreSQL before 12 refused `alter type … add
+-- value` inside a transaction block outright. From 12 onward it is allowed,
+-- with one residual rule — the new value cannot be *referenced* by the same
+-- transaction that added it, because uncommitted enum labels aren't visible
+-- to the scans that would need them.
+--
+-- Neither bites here, and that is by construction rather than by luck:
+--
+--   * Supabase is PG 15+, so the hard pre-12 prohibition is historical. It is
+--     still worth naming because some connection poolers advertise older
+--     semantics, and because a migration runner that wraps each file in a
+--     transaction is the norm (`supabase db push` and `psql -1` both do).
+--   * The residual PG 12+ rule is about *using* the label. This file adds it
+--     and stops. Nothing here inserts a `shop_save` row, backfills one, or
+--     writes a check constraint or default naming it.
+--
+-- So this file is deliberately one statement long. Anything that needed to
+-- reference 'shop_save' — a backfill, a partial index, a constraint — would
+-- have to be a separate migration applied after this one commits, not another
+-- paragraph appended below. If a runner ever does reject it, the fix is to
+-- apply this file on its own outside a transaction; keeping it to a single
+-- statement is what makes that a safe thing to do.
+--
+-- No `before`/`after` clause: the label lands at the end of the sort order,
+-- which is correct because nothing orders by this enum. It is read as a label
+-- and grouped by in funnel reports, never compared with `<`.
+alter type public.waitlist_source add value if not exists 'shop_save';

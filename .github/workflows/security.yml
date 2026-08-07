@@ -1,0 +1,35 @@
+name: Security Review
+
+permissions:
+  pull-requests: write # Needed for leaving PR comments
+  contents: read
+
+on:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    # Actions are pinned to full commit SHAs rather than tags or branches: this job
+    # holds CLAUDE_API_KEY and a pull-requests:write token, so a mutable ref would
+    # hand both to whatever upstream happens to point at on the day the job runs.
+    # To bump, re-resolve the ref named in each trailing comment and review the diff.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          # Without this, checkout writes GITHUB_TOKEN into .git/config so later
+          # steps can push. Nothing here pushes — the job only reads the diff and
+          # comments through the action's own input — but the third-party step
+          # below shares this workspace and could read the token straight out of
+          # the config file. Pinning that action to a SHA bounds *which* code
+          # runs; this bounds what that code can reach if the pin is ever bumped
+          # to something hostile.
+          persist-credentials: false
+
+      - uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda # main @ 2026-02-11 (upstream publishes no tags)
+        with:
+          comment-pr: true
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+          exclude-directories: node_modules,dist,build,.expo

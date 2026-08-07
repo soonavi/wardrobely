@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selv — Ad Creative Gallery</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
+:root{--lav:#8B7CFF;--lav-deep:#5B49D6;--acid:#C7F94B;--acid-deep:#A6E01F;--ink:#141026;--cream:#F5F2EA;--cream-2:#ECE7DA;--muted:#7c7690}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--ink);line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+header.hero{background:var(--ink);color:var(--cream);padding:48px 0 44px;position:relative;overflow:hidden}
+header .blob{position:absolute;border-radius:50%;filter:blur(80px)}
+.b1{width:340px;height:340px;background:var(--lav);top:-120px;right:-40px;opacity:.5}
+.b2{width:260px;height:260px;background:var(--acid);bottom:-140px;left:40px;opacity:.3}
+.hi{position:relative;z-index:2}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.mark{width:38px;height:38px;border-radius:11px;background:var(--lav);position:relative}
+.mark::before,.mark::after{content:"";position:absolute;border-radius:50%;width:13px;height:13px;background:var(--ink)}
+.mark::before{top:9px;left:8px}.mark::after{top:16px;left:17px;opacity:.55}
+.wm{font-family:'Space Grotesk';font-weight:700;font-size:22px;letter-spacing:-.02em}
+header h1{font-family:'Space Grotesk';font-weight:700;font-size:32px;letter-spacing:-.02em;max-width:760px}
+header p{color:#c9c3e0;margin-top:12px;max-width:680px;font-size:15px}
+.meta-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.chip{font-family:'Space Grotesk';font-weight:500;font-size:12.5px;padding:7px 14px;border-radius:100px;border:1px solid rgba(255,255,255,.22)}
+.chip.solid{background:var(--acid);color:var(--ink);border-color:var(--acid)}
+section{padding:44px 0;border-bottom:1px solid var(--cream-2)}
+.eyebrow{font-family:'Space Grotesk';font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--lav-deep);font-weight:500;margin-bottom:10px}
+h2.sec{font-family:'Space Grotesk';font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.sec-sub{color:var(--muted);font-size:14.5px;margin-bottom:26px;max-width:730px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px}
+.card{background:#fff;border:1px solid var(--cream-2);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.media{position:relative;background:var(--ink)}
+.media img,.media video{width:100%;display:block;aspect-ratio:9/16;object-fit:cover}
+.tag{position:absolute;top:10px;left:10px;background:rgba(20,16,38,.7);backdrop-filter:blur(4px);color:#fff;font-family:'Space Grotesk';font-weight:500;font-size:11.5px;padding:5px 10px;border-radius:100px;z-index:2}
+.body{padding:16px 16px 18px}
+.hkey{font-family:'Space Grotesk';font-weight:700;font-size:16px;letter-spacing:-.01em;margin-bottom:8px}
+.cap{font-size:13px;color:#3a3550;background:var(--cream);border-radius:10px;padding:9px 11px;margin-bottom:10px}
+.pill{display:inline-block;background:var(--acid);color:var(--ink);font-family:'Space Grotesk';font-weight:500;font-size:12px;padding:5px 12px;border-radius:100px;margin-bottom:10px}
+.utm{font-family:'Space Grotesk';font-size:11px;color:var(--lav-deep);word-break:break-all;background:#f2f0ff;border-radius:8px;padding:7px 9px}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px}
+.story{font-size:12.5px;color:#3a3550;line-height:1.55}
+.note{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
+/* slideshow slides */
+.slides-row{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 14px}
+.slide{flex:0 0 166px;position:relative;border-radius:14px;overflow:hidden;background:var(--ink)}
+.slide img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}
+.slide .ov{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:12px 11px;background:linear-gradient(to top,rgba(20,16,38,.78),rgba(20,16,38,.06) 58%,transparent)}
+.slide .ov .t{color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:14px;line-height:1.18;letter-spacing:-.01em;text-shadow:0 2px 8px rgba(0,0,0,.55)}
+.slide .num{position:absolute;top:8px;left:8px;background:rgba(20,16,38,.6);color:#fff;font-family:'Space Grotesk';font-weight:500;font-size:11px;padding:3px 8px;border-radius:100px;z-index:2}
+.slide .solve{position:absolute;top:8px;right:8px;background:var(--acid);color:var(--ink);font-family:'Space Grotesk';font-weight:500;font-size:10.5px;padding:3px 8px;border-radius:100px;z-index:2}
+.capbar{font-size:13px;color:#3a3550;background:var(--cream);border-radius:10px;padding:11px 13px;margin-top:6px}
+.capbar b{font-family:'Space Grotesk';font-weight:500}
+.seq{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.7}
+a{color:var(--lav-deep)}
+footer{padding:34px 0 60px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<header class="hero"><div class="blob b1"></div><div class="blob b2"></div>
+  <div class="wrap hi">
+    <div class="logo"><div class="mark"></div><div class="wm">selv</div></div>
+    <h1>Ad creative gallery</h1>
+    <p>All Selv-branded, 9:16 for TikTok &amp; Instagram Reels/Stories. Static ads, a 15s spin video, and native problem&rarr;solution slideshows. Goal: waitlist signups + hype. Strategy, budgets and UTM scheme live in ADS_PLAN.md.</p>
+    <div class="meta-row">
+      <span class="chip solid">Selv-branded</span>
+      <span class="chip">TikTok · Reels · Stories</span>
+      <span class="chip">9:16 vertical</span>
+      <span class="chip">Waitlist: selv-waitlist.vercel.app</span>
+    </div>
+  </div>
+</header>
+
+<section><div class="wrap">
+  <div class="eyebrow">Static ads · copy baked in</div>
+  <h2 class="sec">The core statics</h2>
+  <p class="sec-sub">Post as TikTok photo-mode / IG Stories, or use as a Reel cover. Append the per-creative UTM to the waitlist link so signups are attributable in Supabase (the <code>source</code> field).</p>
+  <div class="grid">
+    <div class="card">
+      <div class="media"><span class="tag">Hero</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050540_09e48ec6-a421-49bd-adbf-348f15eaf1f8.png" alt="Selv dress up as yourself ad"></div>
+      <div class="body"><div class="hkey">"dress up as yourself."</div><span class="pill">CTA: Join the waitlist</span><div class="cap">a 3D twin of you, wearing your real closet. #selv #fashiontech #genz</div><div class="utm">?utm_source=tiktok&utm_medium=paid&utm_campaign=prelaunch&utm_content=hero</div></div>
+    </div>
+    <div class="card">
+      <div class="media"><span class="tag">Closet in 3D</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050526_23cd4674-3329-4fea-a265-b1ae21f8abae.png" alt="Selv your closet in 3D ad"></div>
+      <div class="body"><div class="hkey">"your closet, in 3D."</div><span class="pill">CTA: Join the waitlist</span><div class="cap">the wardrobe, reimagined — a 3D you in what you already own. #selv #styletok</div><div class="utm">?utm_source=instagram&utm_medium=organic&utm_campaign=prelaunch&utm_content=closet3d</div></div>
+    </div>
+    <div class="card">
+      <div class="media"><span class="tag">Design your character</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050525_1d24c949-8304-4eb6-a314-8f1577ec964b.png" alt="Selv avatar reveal ad"></div>
+      <div class="body"><div class="hkey">"design your character."</div><span class="pill">CTA: Join the waitlist</span><div class="cap">designing my 3D self, brb 💅 #selv #charactercreator #genz</div><div class="utm">?utm_source=tiktok&utm_medium=organic&utm_campaign=prelaunch&utm_content=design</div></div>
+    </div>
+    <div class="card">
+      <div class="media"><span class="tag">Try before you buy</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050543_2361fccc-f3e7-4f38-9698-068530a779f6.png" alt="Selv try it on before you buy ad"></div>
+      <div class="body"><div class="hkey">"try it on before you buy it."</div><span class="pill">CTA: Join the waitlist</span><div class="cap">one tap from buying — here's how it looks on the 3D me first 🙏 #selv #haul</div><div class="utm">?utm_source=tiktok&utm_medium=organic&utm_campaign=prelaunch&utm_content=trybuy</div></div>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">Photo ads · real people + their Selv</div>
+  <h2 class="sec">The human moment</h2>
+  <p class="sec-sub">Photorealistic lifestyle cuts — a real Gen Z person with their Selv character on the phone. These complement the stylized 3D statics above; reach for them where a relatable "that's literally me" moment converts better than a product shot. Diverse cast on purpose. <b>Status:</b> 1 of 5 rendered — the generation endpoint went intermittent mid-batch (reads work, submits time out), so the remaining four are queued with locked headlines + UTMs and will drop straight into these slots on the next successful pass.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="media"><span class="tag">meet the 3D you</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260723_083812_6e55d99f-2ac0-43f9-9266-8c0da199b76f.png" alt="Selv meet the 3D you photo ad"></div>
+      <div class="body"><div class="hkey">"meet the 3D you."</div><span class="pill">CTA: Join the waitlist</span><div class="cap">POV: you finally meet the 3D you 🫶 #selv #genz #fashiontech</div><div class="utm">?utm_source=tiktok&utm_medium=paid&utm_campaign=prelaunch&utm_content=meet3dyou</div></div>
+    </div>
+    <div class="card">
+      <div class="media" style="background:#ECE7DA;min-height:300px;display:flex;align-items:center;justify-content:center"><span class="tag">queued</span><span style="font-family:'Space Grotesk',sans-serif;color:#7c7690;font-size:13px;letter-spacing:.04em">rendering queued ⏳</span></div>
+      <div class="body"><div class="hkey">"your closet, now in your pocket."</div><span class="pill">Real woman at her full closet</span><div class="cap">3D wardrobe grid + her character on the phone. Queued — endpoint flapped.</div><div class="utm">?utm_source=instagram&utm_medium=organic&utm_campaign=prelaunch&utm_content=pocket-closet</div></div>
+    </div>
+    <div class="card">
+      <div class="media" style="background:#ECE7DA;min-height:300px;display:flex;align-items:center;justify-content:center"><span class="tag">queued</span><span style="font-family:'Space Grotesk',sans-serif;color:#7c7690;font-size:13px;letter-spacing:.04em">rendering queued ⏳</span></div>
+      <div class="body"><div class="hkey">"make your character."</div><span class="pill">Two friends comparing avatars</span><div class="cap">Social/UGC angle — each phone shows a different Selv. Queued.</div><div class="utm">?utm_source=tiktok&utm_medium=organic&utm_campaign=prelaunch&utm_content=make-character</div></div>
+    </div>
+    <div class="card">
+      <div class="media" style="background:#ECE7DA;min-height:300px;display:flex;align-items:center;justify-content:center"><span class="tag">queued</span><span style="font-family:'Space Grotesk',sans-serif;color:#7c7690;font-size:13px;letter-spacing:.04em">rendering queued ⏳</span></div>
+      <div class="body"><div class="hkey">"try it on selv first."</div><span class="pill">IRL outfit matches the 3D one</span><div class="cap">Try-before-you-buy angle, premium look. Queued.</div><div class="utm">?utm_source=tiktok&utm_medium=organic&utm_campaign=prelaunch&utm_content=tryon-first</div></div>
+    </div>
+    <div class="card">
+      <div class="media" style="background:#ECE7DA;min-height:300px;display:flex;align-items:center;justify-content:center"><span class="tag">queued</span><span style="font-family:'Space Grotesk',sans-serif;color:#7c7690;font-size:13px;letter-spacing:.04em">rendering queued ⏳</span></div>
+      <div class="body"><div class="hkey">"nothing to wear? design a 3D you."</div><span class="pill">Pain-point · pile of clothes</span><div class="cap">The relatable overwhelm → solution beat. Queued.</div><div class="utm">?utm_source=tiktok&utm_medium=paid&utm_campaign=prelaunch&utm_content=nothing-to-wear</div></div>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">Video ad · 15s, branded</div>
+  <h2 class="sec">The spin</h2>
+  <p class="sec-sub">The 15s avatar turntable. Note: this clip predates the character-creator pivot — it shows the old photoreal render, so regenerate a stylized-character spin to match the app before using it. Statics above are already updated to the stylized look.</p>
+  <div class="vgrid">
+    <div class="card">
+      <div class="media"><span class="tag">15s · spin · branded</span><video controls preload="metadata" poster="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050526_23cd4674-3329-4fea-a265-b1ae21f8abae.png" src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055015_4a4ddaf4-2185-4a91-bd25-5677ac44bf41.mp4"></video></div>
+      <div class="body"><div class="hkey">"your closet, in 3D."</div><span class="pill">Wordmark on screen throughout</span><div class="story">Slow, premium turntable of the 3D avatar with a lavender/acid glow — the "much better spin" cut. Great as a "how it works" or product-reveal Reel; loops cleanly. Pair with the reveal or closet slideshows below.</div></div>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">Slideshow ad A · native, problem &rarr; solution</div>
+  <h2 class="sec">"nothing to wear" → "30 outfits"</h2>
+  <p class="sec-sub">The native TikTok/IG photo-slideshow format: relatable real-looking photos (with your on-screen text), building to how Selv solved it. Swipe/tap-through. Post via TikTok photo mode or an IG carousel.</p>
+  <div class="slides-row">
+    <div class="slide"><span class="num">1</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055017_506aa26e-c138-468c-9183-932b02b30a87.png" alt=""><div class="ov"><div class="t">POV: a FULL closet and still "nothing to wear"</div></div></div>
+    <div class="slide"><span class="num">2</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055019_d4207a21-ed7e-4049-a1df-706735dd647d.png" alt=""><div class="ov"><div class="t">so i kept buying more online…</div></div></div>
+    <div class="slide"><span class="num">3</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055021_6eb6fd55-94a2-4aa8-b9ec-03954e94c278.png" alt=""><div class="ov"><div class="t">…that never fit right 😭</div></div></div>
+    <div class="slide"><span class="num">4</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055022_bfe14d50-9b26-4f43-94c2-f9bb6e455b70.png" alt=""><div class="ov"><div class="t">then my fyp showed me selv</div></div></div>
+    <div class="slide"><span class="num">5</span><span class="solve">selv</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050526_23cd4674-3329-4fea-a265-b1ae21f8abae.png" alt=""></div>
+    <div class="slide"><span class="num">6</span><span class="solve">selv</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050525_1d24c949-8304-4eb6-a314-8f1577ec964b.png" alt=""></div>
+    <div class="slide"><span class="num">7</span><span class="solve">CTA</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050540_09e48ec6-a421-49bd-adbf-348f15eaf1f8.png" alt=""></div>
+  </div>
+  <div class="seq"><b>On-screen text, slide by slide:</b> 1 "POV: a full closet and 'nothing to wear'" · 2 "so i kept buying more online…" · 3 "…that never fit right 😭" · 4 "then my fyp showed me selv" · 5 "so i designed a 3D me — no photo, no measurements" (Selv frame) · 6 "and tried on my WHOLE closet" (Selv frame) · 7 "found 30 outfits i already owned — dress up as yourself · join the waitlist" (Selv CTA frame).</div>
+  <div class="capbar"><b>Caption:</b> the "i have nothing to wear" → "i own 30 outfits" pipeline 🧵 built a 3D me on selv and tried on my whole closet. #selv #fitcheck #closet #genz — join the waitlist 🔗 &nbsp;·&nbsp; <b>UTM:</b> ?utm_source=tiktok&utm_medium=organic&utm_campaign=prelaunch&utm_content=slideshow-closet</div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">Slideshow ad B · native, problem &rarr; solution</div>
+  <h2 class="sec">"i return everything" → "zero returns"</h2>
+  <p class="sec-sub">Same native format, the try-before-you-buy angle — for the resale/online-shopping crowd.</p>
+  <div class="slides-row">
+    <div class="slide"><span class="num">1</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055021_6eb6fd55-94a2-4aa8-b9ec-03954e94c278.png" alt=""><div class="ov"><div class="t">i return like 80% of what i order online</div></div></div>
+    <div class="slide"><span class="num">2</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055019_d4207a21-ed7e-4049-a1df-706735dd647d.png" alt=""><div class="ov"><div class="t">i can never tell how it'll actually look on me</div></div></div>
+    <div class="slide"><span class="num">3</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260715_055022_bfe14d50-9b26-4f43-94c2-f9bb6e455b70.png" alt=""><div class="ov"><div class="t">so i tried selv</div></div></div>
+    <div class="slide"><span class="num">4</span><span class="solve">selv</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050543_2361fccc-f3e7-4f38-9698-068530a779f6.png" alt=""></div>
+    <div class="slide"><span class="num">5</span><span class="solve">selv</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050526_23cd4674-3329-4fea-a265-b1ae21f8abae.png" alt=""></div>
+    <div class="slide"><span class="num">6</span><span class="solve">CTA</span><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050540_09e48ec6-a421-49bd-adbf-348f15eaf1f8.png" alt=""></div>
+  </div>
+  <div class="seq"><b>On-screen text, slide by slide:</b> 1 "i return like 80% of what i order online" · 2 "i can never tell how it'll actually look on me" · 3 "so i tried selv" · 4 "it puts clothes on the 3D character i designed" (Selv frame) · 5 "i see the whole look BEFORE i buy" (Selv frame) · 6 "zero returns this month 🙏 — try before you buy · join the waitlist" (Selv CTA frame).</div>
+  <div class="capbar"><b>Caption:</b> if you also return everything you order online, this is for you 🛍️ selv puts clothes on the 3D character you design, so you see the whole look before you buy. #selv #tryonhaul #onlineshopping #genz — join the waitlist 🔗 &nbsp;·&nbsp; <b>UTM:</b> ?utm_source=tiktok&utm_medium=organic&utm_campaign=prelaunch&utm_content=slideshow-returns</div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">How to run</div>
+  <h2 class="sec">Launch notes</h2>
+  <p class="sec-sub">Everything points to the live waitlist. Attribution + budgets are in ADS_PLAN.md.</p>
+  <div class="story" style="font-size:14px;max-width:760px">
+    <p style="margin-bottom:8px"><b>Slideshows:</b> the first 3–4 slides are relatable stock-style photos — add the listed on-screen text in CapCut/TikTok photo mode. The final 2–3 are the Selv frames, which carry their own baked-in headline; the slide-by-slide line above is the <em>beat</em> that frame has to land, so check the baked headline still says it before posting and re-render the frame rather than overlaying a second, contradicting line.</p>
+    <p style="margin-bottom:8px"><b>Destination:</b> https://selv-waitlist.vercel.app + the per-creative UTM shown on each ad. The landing writes the UTM into Supabase <code>waitlist.source</code>, so you can see which creative drove each signup.</p>
+    <p style="margin-bottom:8px"><b>Guardrails:</b> the avatar is <em>designed in a character creator</em> — never say or imply it is built from a photo, a scan, or body measurements, because it isn't; avatar is a styling tool, not a body-scorer; varied bodies &amp; skin tones; no "unlimited wardrobe" and no Selv+ price anywhere (Free = 25 items and Selv+ has no purchase flow in v1 — the cap opens a waitlist, not a paywall); no Phase-2 social-feed promises.</p>
+    <p><b>Before paid scale:</b> add a TikTok Pixel + Meta Pixel to the landing (flagged in ADS_PLAN.md).</p>
+  </div>
+</div></section>
+
+<footer>Selv — ad creative gallery · July 2026 · imagery is AI-generated; name/brand are a working concept pending trademark clearance.</footer>
+
+</body>
+</html>

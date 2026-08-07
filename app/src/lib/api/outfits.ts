@@ -165,12 +165,26 @@ export async function deleteOutfit(
 /**
  * Update an existing outfit's name and replace its items wholesale.
  *
- * Used to save changes back onto an outfit that was loaded into the
- * try-on studio, instead of creating a duplicate outfit. Not currently
- * called anywhere — the try-on studio always calls `createOutfit`, even
- * when editing a loaded outfit (see PLAN.md "Known MVP limitation").
- * Wiring this in requires the studio to pass `useTryOnStore`'s
- * `outfitId` here when it's non-null; that's outside this file's scope.
+ * This is what "save" does once a screen knows it is editing an outfit that
+ * already exists, rather than minting a near-identical duplicate. The 3D
+ * character screen (CharacterTryOnScreen) is the only caller: it holds an
+ * outfit id from the `?outfitId=` route param the Outfits tab pushes when you
+ * reopen a saved look, and falls back to `createOutfit` when it doesn't. The
+ * legacy 2D studio that used to be the other caller has been deleted.
+ *
+ * Items are REPLACED, not merged: a caller sends the complete list it wants
+ * the outfit to end up with, and anything omitted is deleted. That puts the
+ * burden on a caller that can't represent every item to pass the ones it
+ * can't show back through unchanged — which is why the 3D screen carries
+ * slot-collision losers (a shirt under a jacket, bottoms under a dress)
+ * alongside what it has equipped. Those are more items than the body has
+ * places to put them, and they are exactly the pieces a user would be most
+ * startled to find deleted by reopening an outfit and tapping Update.
+ *
+ * The replace is a delete followed by an insert and is NOT atomic: unlike
+ * `createOutfit`, a failed insert here can't be rolled back, so a failure
+ * mid-way leaves the outfit renamed and emptied. Acceptable because the
+ * caller still holds the item list and can retry, but don't assume otherwise.
  */
 export async function updateOutfit(
   outfitId: string,

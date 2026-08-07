@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
 import type { GarmentCategory, GarmentRow } from "../database.types";
+import { canAddGarment, getCurrentPlan, wardrobeLimitMessage } from "../pricing";
 
 export interface ApiResult<T> {
   data: T | null;
@@ -43,6 +44,32 @@ async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
 }
 
 /**
+ * How many garments the user owns, in total — never filtered.
+ *
+ * This exists as its own call because the wardrobe cap must be judged against
+ * the whole wardrobe, while `listGarments` deliberately returns only what the
+ * active category/tag filter matches. Deriving the cap from a filtered list is
+ * the bug this replaces: a user at the limit could filter to a category
+ * holding three items, be told "3/25", and be waved into the add-garment flow
+ * only to be rejected at save time after picking a photo and typing metadata.
+ *
+ * `head: true` fetches no rows — Postgres returns the count in a header — so
+ * this stays cheap enough to run alongside every list refresh.
+ */
+export async function countGarments(userId: string): Promise<ApiResult<number>> {
+  const { count, error } = await supabase
+    .from("garments")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (error) {
+    return { data: null, error: error.message };
+  }
+
+  return { data: count ?? 0, error: null };
+}
+
+/**
  * Upload a garment image to storage at {user_id}/{garment_id}.jpg and
  * insert the corresponding garments row. The garment id is generated
  * client-side so the storage path can be known before the row exists.
@@ -50,6 +77,22 @@ async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
 export async function createGarment(
   input: CreateGarmentInput
 ): Promise<ApiResult<GarmentRow>> {
+  // Defensive guard: re-check the free-tier wardrobe cap right before
+  // inserting, independent of any check the caller already did. The
+  // wardrobe screen blocks navigation to the add-garment flow once the
+  // cap is hit, but that's a UI convenience only — someone could still
+  // deep-link straight into add-garment, so the cap has to be enforced
+  // here too, right against the current server-side count.
+  const { data: count, error: countError } = await countGarments(input.userId);
+
+  if (countError) {
+    return { data: null, error: countError };
+  }
+
+  if (!canAddGarment(count ?? 0, getCurrentPlan())) {
+    return { data: null, error: wardrobeLimitMessage() };
+  }
+
   const garmentId = generateUuid();
   const imagePath = `${input.userId}/${garmentId}.jpg`;
 
@@ -161,17 +204,29 @@ export async function updateGarment(
   return { data: data as GarmentRow, error: null };
 }
 
-/** Delete a garment row and its associated storage object. */
+/**
+ * Delete a garment row and, when it owns one, its storage object.
+ *
+ * `imagePath` is nullable because a garment no longer always comes from a
+ * user photo upload. A catalog-sourced garment (`source === 'catalog'`, saved
+ * from the Shop tab) keeps its imagery on the partner's CDN in `image_url`
+ * and has `image_path === null` — there is no object in our bucket to remove,
+ * and asking Storage to delete one would either fail the delete outright or
+ * ask it to remove something that was never ours. So the storage call is
+ * skipped entirely rather than being handed a synthesized or empty path.
+ */
 export async function deleteGarment(
   garmentId: string,
-  imagePath: string
+  imagePath: string | null
 ): Promise<{ error: string | null }> {
-  const { error: storageError } = await supabase.storage
-    .from(GARMENTS_BUCKET)
-    .remove([imagePath]);
+  if (imagePath) {
+    const { error: storageError } = await supabase.storage
+      .from(GARMENTS_BUCKET)
+      .remove([imagePath]);
 
-  if (storageError) {
-    return { error: storageError.message };
+    if (storageError) {
+      return { error: storageError.message };
+    }
   }
 
   const { error: deleteError } = await supabase

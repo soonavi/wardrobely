@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selv — Your closet, but make it 3D</title>
+<meta name="description" content="Design a 3D character, dress it in your real closet, and try on anything before you buy. No photo, no scan. Join the waitlist.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
+:root{--lav:#8B7CFF;--lav-deep:#5B49D6;--acid:#C7F94B;--acid-deep:#A6E01F;--ink:#141026;--cream:#F5F2EA;--cream-2:#ECE7DA;--muted:#7c7690}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.display{font-family:'Space Grotesk',sans-serif}
+a{color:inherit;text-decoration:none}
+#how-it-works,#pricing{scroll-margin-top:80px}
+/* nav */
+nav{position:sticky;top:0;z-index:20;background:rgba(245,242,234,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--cream-2)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;height:62px}
+.logo-lock{display:flex;align-items:center;gap:10px}
+.mark{width:30px;height:30px;border-radius:9px;background:var(--lav);position:relative;flex:none}
+.mark::before,.mark::after{content:"";position:absolute;border-radius:50%;width:11px;height:11px;background:var(--ink)}
+.mark::before{top:7px;left:6px}.mark::after{top:12px;left:13px;opacity:.55}
+.wm{font-family:'Space Grotesk';font-weight:700;font-size:20px;letter-spacing:-.02em}
+.nav-links{display:flex;align-items:center;gap:26px;font-family:'Space Grotesk';font-weight:500;font-size:14px}
+.nav-links a.plain{color:var(--muted)}
+.nav-cta{background:var(--acid);color:var(--ink);padding:9px 16px;border-radius:100px}
+@media(max-width:640px){.nav-links a.plain{display:none}}
+/* hero */
+.hero{background:var(--ink);color:var(--cream);position:relative;overflow:hidden}
+.hero .blob{position:absolute;border-radius:50%;filter:blur(80px)}
+.hb1{width:360px;height:360px;background:var(--lav);top:-140px;right:-40px;opacity:.5}
+.hb2{width:280px;height:280px;background:var(--acid);bottom:-160px;left:40px;opacity:.28}
+.hero-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:48px;align-items:center;padding:56px 0 64px;position:relative;z-index:2}
+.hero h1{font-family:'Space Grotesk';font-weight:700;font-size:52px;line-height:1.03;letter-spacing:-.03em}
+.hero h1 .hl{color:var(--acid)}
+.hero .sub{color:#c9c3e0;font-size:17px;margin-top:18px;max-width:440px}
+.form{display:flex;gap:8px;margin-top:26px;max-width:440px}
+.form input{flex:1;border:none;border-radius:100px;padding:14px 18px;font-family:'Inter';font-size:15px}
+.form button{background:var(--lav);color:#fff;border:none;border-radius:100px;padding:14px 22px;font-family:'Space Grotesk';font-weight:500;font-size:15px;cursor:pointer}
+.form button:disabled{opacity:.6;cursor:default}
+.err{color:#ffb3b3;font-size:13px;margin-top:8px;min-height:16px}
+.counter{margin-top:14px;font-size:13px;color:#9b93bd;display:flex;align-items:center;gap:8px}
+.dots{display:flex}.dots span{width:22px;height:22px;border-radius:50%;margin-left:-7px;border:2px solid var(--ink);background:linear-gradient(135deg,var(--lav),var(--acid))}
+.hero-img{justify-self:center;position:relative}
+.hero-img .glow{position:absolute;inset:-30px;border-radius:30px;background:var(--lav);filter:blur(60px);opacity:.5}
+.hero-img img{position:relative;width:100%;max-width:340px;border-radius:22px;display:block}
+.success{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:18px;margin-top:22px;max-width:440px}
+.success h3{font-family:'Space Grotesk';font-weight:500;font-size:16px;margin-bottom:8px}
+.reflink{display:flex;gap:8px;margin-top:10px}
+.reflink input{flex:1;border:none;border-radius:100px;padding:10px 14px;font-size:13px}
+.reflink button{background:var(--acid);color:var(--ink);border:none;border-radius:100px;padding:10px 16px;font-family:'Space Grotesk';font-weight:500;font-size:13px;cursor:pointer}
+@media(max-width:820px){.hero-grid{grid-template-columns:1fr;gap:32px}.hero h1{font-size:40px}}
+/* sections */
+section.pad{padding:64px 0}
+.eyebrow{font-family:'Space Grotesk';font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--lav-deep);font-weight:500;margin-bottom:12px}
+h2.sec-h2{font-family:'Space Grotesk';font-size:30px;font-weight:700;letter-spacing:-.02em;margin-bottom:34px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.step{background:#fff;border:1px solid var(--cream-2);border-radius:16px;padding:24px}
+.step .n{width:38px;height:38px;border-radius:11px;background:var(--lav);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;margin-bottom:14px}
+.step h3{font-family:'Space Grotesk';font-weight:500;font-size:17px;margin-bottom:6px}
+.step p{font-size:14px;color:var(--muted)}
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch}
+.price-card{background:#fff;border:1px solid var(--cream-2);border-radius:18px;padding:26px;display:flex;flex-direction:column}
+.price-card.hl{border:2px solid var(--lav);position:relative}
+.badge{position:absolute;top:-11px;left:24px;background:var(--lav);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px}
+.price-name{font-family:'Space Grotesk';font-weight:700;font-size:18px}
+.price-amt{font-family:'Space Grotesk';font-weight:700;font-size:30px;margin:6px 0 14px}
+.price-amt span{font-size:14px;color:var(--muted);font-weight:400}
+.price-card ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.price-card li{font-size:14px;padding-left:22px;position:relative}
+.price-card li::before{content:"✓";position:absolute;left:0;color:var(--acid-deep);font-weight:700}
+@media(max-width:820px){.steps,.price-grid{grid-template-columns:1fr}}
+footer{background:var(--ink);color:#c9c3e0;padding:40px 0 54px;font-size:13px}
+footer .trust{color:var(--cream);font-family:'Space Grotesk';font-weight:500;font-size:15px;margin-bottom:10px}
+.footer-note{margin-top:14px;color:#7d769b}
+</style>
+</head>
+<body>
+<nav><div class="wrap nav-inner">
+  <a class="logo-lock" href="#top"><span class="mark"></span><span class="wm">selv</span></a>
+  <div class="nav-links">
+    <a class="plain" href="#how-it-works">how it works</a>
+    <a class="plain" href="#pricing">pricing</a>
+    <a class="nav-cta" href="#signup">Join waitlist</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top">
+  <div class="blob hb1"></div><div class="blob hb2"></div>
+  <div class="wrap hero-grid">
+    <div id="signup">
+      <h1>Dress up as <span class="hl">yourself.</span></h1>
+      <p class="sub">A 3D character you design, wearing your actual closet. Try on anything before you buy — then post the fit. <b style="color:#fff">Your closet, but make it 3D.</b></p>
+      <form class="form" id="waitlist-form" novalidate>
+        <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" aria-label="Email address" required>
+        <button id="submit-btn" type="submit">Join waitlist</button>
+      </form>
+      <div class="err" id="error" role="alert"></div>
+      <div class="counter" id="counter"><span class="dots"><span></span><span></span><span></span><span></span></span><span id="counter-text">Be one of the first.</span></div>
+      <div class="success" id="success" hidden>
+        <h3 id="success-msg">You're in!</h3>
+        <div class="reflink" id="referral-box" hidden>
+          <input id="referral-link" readonly aria-label="Your invite link">
+          <button id="copy-btn" type="button">Copy link</button>
+        </div>
+      </div>
+    </div>
+    <div class="hero-img">
+      <div class="glow"></div>
+      <img src="https://d8j0ntlcm91z4.cloudfront.net/user_3FMl9VUjLhJKarfvJj8VEEfaDdY/hf_20260721_050520_804d8eb3-479d-4448-ae60-05af3f96e947.png" alt="A stylized 3D character you design, in Selv's brand colors">
+    </div>
+  </div>
+</header>
+
+<section class="pad" id="how-it-works"><div class="wrap">
+  <div class="eyebrow">How it works</div>
+  <h2 class="sec-h2">Three steps to your 3D fit check</h2>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><h3>Design your character</h3><p>Pick skin tone, face, hair and body type in the character creator. No photo, no scan, no measurements.</p></div>
+    <div class="step"><div class="n">2</div><h3>Digitize your closet</h3><p>Snap what you already own. We turn each piece into a wearable 3D item, tagged and ready to mix.</p></div>
+    <div class="step"><div class="n">3</div><h3>Try on &amp; post the fit</h3><p>Build outfits on your character, try on things you don't own yet, save your favorites, and share the look.</p></div>
+  </div>
+</div></section>
+
+<section class="pad" id="pricing" style="background:#fff;border-top:1px solid var(--cream-2);border-bottom:1px solid var(--cream-2)"><div class="wrap">
+  <div class="eyebrow">Pricing</div>
+  <h2 class="sec-h2">Free to start. Upgrade if you're obsessed.</h2>
+  <div class="price-grid">
+    <div class="price-card">
+      <div class="price-name">Free</div><div class="price-amt">$0</div>
+      <ul><li>Your 3D character</li><li>Up to 25 wardrobe items</li><li>Unlimited outfit mixing</li><li>Save &amp; share fit cards</li></ul>
+    </div>
+    <div class="price-card hl">
+      <div class="badge">Most popular</div>
+      <div class="price-name">Selv+</div><div class="price-amt">$6.99<span>/mo</span></div>
+      <ul><li>Everything in Free</li><li>Unlimited wardrobe items</li><li>Try on anything before you buy</li><li>Priority rendering + early access</li></ul>
+    </div>
+    <div class="price-card">
+      <div class="price-name">Try before you buy</div><div class="price-amt">Affiliate</div>
+      <ul><li>Try real items from partner brands on your character</li><li>We may earn a small commission if you check out</li><li>Never changes the price you pay</li></ul>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="trust">Your avatar is a styling tool, not a body-scorer.</div>
+  We never ask for a photo or a scan of you. Your closet photos are yours — deleted anytime, never sold, never used to train models.
+  <div class="footer-note">Selv — name, brand, colors and pricing are a working concept and subject to change ahead of launch. © 2026 Selv.</div>
+</div></footer>
+
+<script>
+(function(){
+  var SUPABASE_URL = "https://tmldopeuctftnteerxjg.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_1JZLG6n_BMCk2-9dg76lSA_O6c_Ntli";
+  var LOW_COUNT_THRESHOLD = 25;
+
+  var form = document.getElementById('waitlist-form');
+  var emailInput = document.getElementById('email');
+  var submitBtn = document.getElementById('submit-btn');
+  var errorEl = document.getElementById('error');
+  var counterText = document.getElementById('counter-text');
+  var successState = document.getElementById('success');
+  var successMessage = document.getElementById('success-msg');
+  var referralBox = document.getElementById('referral-box');
+  var referralLinkInput = document.getElementById('referral-link');
+  var copyBtn = document.getElementById('copy-btn');
+
+  function isValidEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  function getIncomingRef(){
+    try { return new URLSearchParams(window.location.search).get('ref') || null; }
+    catch(e){ return null; }
+  }
+
+  function getSource(){
+    try {
+      var p = new URLSearchParams(window.location.search);
+      var parts = [p.get('utm_source'), p.get('utm_campaign'), p.get('utm_content')]
+        .filter(function(v){ return v && v.trim(); })
+        .map(function(v){ return v.trim().slice(0, 40); });
+      return parts.length ? parts.join('/') : 'landing';
+    } catch(e){ return 'landing'; }
+  }
+
+  function buildReferralLink(code){
+    return window.location.origin + window.location.pathname + '?ref=' + encodeURIComponent(code);
+  }
+
+  function setSubmitting(is){ submitBtn.disabled = is; submitBtn.textContent = is ? 'Joining…' : 'Join waitlist'; }
+
+  function showSuccess(referralCode, isDuplicate){
+    form.hidden = true;
+    successState.hidden = false;
+    if (isDuplicate) {
+      successMessage.textContent = "You're already on the list — share Selv to jump the queue anyway.";
+      referralBox.hidden = true;
+    } else if (referralCode) {
+      successMessage.textContent = "You're in! Share your invite link to jump the queue.";
+      referralLinkInput.value = buildReferralLink(referralCode);
+      referralBox.hidden = false;
+    } else {
+      successMessage.textContent = "You're on the list!";
+      referralBox.hidden = true;
+    }
+  }
+
+  async function fetchCount(){
+    try {
+      var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/waitlist_count', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!res.ok) throw new Error('count ' + res.status);
+      var count = Math.round(Number(await res.json()));
+      if (!isFinite(count) || count < LOW_COUNT_THRESHOLD) counterText.textContent = 'Be one of the first.';
+      else counterText.textContent = 'Join ' + count.toLocaleString('en-US') + ' already in line';
+    } catch(e){ counterText.textContent = 'Be one of the first.'; }
+  }
+
+  if (form) {
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var email = emailInput.value.trim();
+      errorEl.textContent = '';
+      if (!isValidEmail(email)) { errorEl.textContent = 'Enter a valid email address.'; emailInput.focus(); return; }
+      setSubmitting(true);
+      try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/waitlist', {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+          body: JSON.stringify({ email: email, referred_by: getIncomingRef(), source: getSource() })
+        });
+        if (res.status === 409) { showSuccess(null, true); setSubmitting(false); return; }
+        if (!res.ok) throw new Error('insert ' + res.status);
+        var rows = await res.json();
+        var row = Array.isArray(rows) ? rows[0] : rows;
+        showSuccess(row && row.referral_code ? row.referral_code : null, false);
+        fetchCount();
+      } catch(err){
+        errorEl.textContent = "Something went wrong on our end — please try again in a moment.";
+        setSubmitting(false);
+      }
+    });
+  }
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function(){
+      var link = referralLinkInput.value;
+      var done = function(){ copyBtn.textContent = 'Copied!'; setTimeout(function(){ copyBtn.textContent = 'Copy link'; }, 2000); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(done).catch(function(){ fallbackCopy(link, done); });
+      } else {
+        fallbackCopy(link, done);
+      }
+    });
+  }
+
+  function fallbackCopy(text, done){
+    try {
+      referralLinkInput.removeAttribute('readonly');
+      referralLinkInput.focus();
+      referralLinkInput.select();
+      referralLinkInput.setSelectionRange(0, 99999);
+      document.execCommand('copy');
+      referralLinkInput.setAttribute('readonly', '');
+      if (typeof done === 'function') done();
+    } catch(e){}
+  }
+
+  fetchCount();
+})();
+</script>
+</body>
+</html>

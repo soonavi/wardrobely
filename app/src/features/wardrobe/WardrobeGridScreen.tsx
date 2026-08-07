@@ -12,12 +12,19 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { listGarments } from "../../lib/api/garments";
-import { useSignedImageUrl } from "../../lib/hooks/useSignedImageUrl";
+import { countGarments, listGarments } from "../../lib/api/garments";
+import { useGarmentImageUrl } from "../../lib/garmentImage";
 import type { GarmentCategory, GarmentRow } from "../../lib/database.types";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import { CATEGORY_OPTIONS } from "./types";
 import { colors, radius, type } from "../../lib/theme";
+import { SelvPlusWaitlistSheet } from "../paywall/SelvPlusWaitlistSheet";
+import {
+  canAddGarment,
+  FREE_WARDROBE_LIMIT,
+  getCurrentPlan,
+  remainingFreeSlots,
+} from "../../lib/pricing";
 
 export function WardrobeGridScreen() {
   const router = useRouter();
@@ -26,6 +33,17 @@ export function WardrobeGridScreen() {
   const userId = session?.user.id;
 
   const [garments, setGarments] = useState<GarmentRow[]>([]);
+  /**
+   * Size of the WHOLE wardrobe, independent of the active filters.
+   *
+   * `garments` holds only what the current category/tag filter matched, so it
+   * cannot speak for the cap: filtering to a category with three items would
+   * otherwise read as "3/25" to a user who owns twenty-five, and wave them
+   * into an add-garment flow that `createGarment` then rejects at save time.
+   * Null until the first count lands — see the cap logic below for why that
+   * distinction matters.
+   */
+  const [totalGarments, setTotalGarments] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] =
     useState<GarmentCategory | null>(null);
   const [tagFilter, setTagFilter] = useState("");
@@ -33,6 +51,7 @@ export function WardrobeGridScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [waitlistVisible, setWaitlistVisible] = useState(false);
 
   const trimmedTagFilter = tagFilter.trim();
 
@@ -46,15 +65,46 @@ export function WardrobeGridScreen() {
       }
       setError(null);
 
-      const { data, error: fetchError } = await listGarments(userId, {
-        category: selectedCategory ?? undefined,
-        tag: trimmedTagFilter || undefined,
-      });
+      // Fired together: the filtered page the grid renders, and the unfiltered
+      // total the cap is judged against. Concurrent rather than sequential
+      // because neither depends on the other and the count is a head request
+      // with no rows to fetch.
+      const [
+        { data, error: fetchError },
+        { data: total, error: countError },
+      ] = await Promise.all([
+        listGarments(userId, {
+          category: selectedCategory ?? undefined,
+          tag: trimmedTagFilter || undefined,
+        }),
+        countGarments(userId),
+      ]);
 
       if (fetchError) {
         setError(fetchError);
       } else {
         setGarments(data ?? []);
+      }
+
+      // A failed count is not surfaced as a screen error — the grid itself
+      // loaded fine and blocking it would be a worse outcome than a missing
+      // counter. Leaving `totalGarments` null makes the cap fail *open*: the
+      // header hides the count rather than showing a wrong one, and the add
+      // button stays live so a user under the cap isn't locked out by a
+      // transient network blip. `createGarment` re-checks server-side anyway,
+      // so a user genuinely at the limit is still refused — just at save time
+      // rather than at the button.
+      if (!countError) {
+        setTotalGarments(total);
+      } else {
+        // Cleared, not left at the previous value. A retained count is worse
+        // than no count in the direction that matters: a stale total sitting
+        // at the cap produces a *false block* — the waitlist sheet shown to
+        // someone who has since deleted items and genuinely has room — and no
+        // later check can undo a button the user was never allowed to press.
+        // An unknown total fails the other way, and createGarment still
+        // refuses anyone actually at the limit.
+        setTotalGarments(null);
       }
 
       setLoading(false);
@@ -71,6 +121,31 @@ export function WardrobeGridScreen() {
     setTagFilter("");
   }, []);
 
+  // Free-tier wardrobe cap (see src/lib/pricing.ts). `plan` is a stub that
+  // always returns "free" because there is no entitlement to read — Selv+ is
+  // not for sale in v1 — so the cap is active for every user today.
+  const plan = getCurrentPlan();
+  // `totalGarments`, never `garments.length` — see the state declaration.
+  // While the count is still null the cap is unknown, so `remainingSlots`
+  // stays null and the header simply omits the counter.
+  const remainingSlots =
+    totalGarments === null ? null : remainingFreeSlots(totalGarments, plan);
+
+  const handleAddPress = useCallback(() => {
+    // An unknown total fails open (see loadGarments). canAddGarment(0, …) is
+    // always true, which is the deliberate choice: `createGarment` enforces
+    // the cap against the live server count regardless.
+    if (!canAddGarment(totalGarments ?? 0, plan)) {
+      // Opens the waitlist sheet, not a purchase flow: there isn't one, and
+      // this used to be an Alert whose "Upgrade" button was wired to a TODO.
+      // A Modal rather than an Alert because the honest version needs an
+      // email input and four states, none of which an Alert can hold.
+      setWaitlistVisible(true);
+      return;
+    }
+    router.push("/add-garment");
+  }, [totalGarments, plan, router]);
+
   // loadGarments' identity changes with selectedCategory, so this single
   // focus effect covers both screen focus and filter changes (a separate
   // useEffect on selectedCategory would double-fetch).
@@ -83,10 +158,17 @@ export function WardrobeGridScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Wardrobe</Text>
+        <View>
+          <Text style={styles.title}>Wardrobe</Text>
+          {remainingSlots !== null && (
+            <Text style={styles.itemCount}>
+              {totalGarments}/{FREE_WARDROBE_LIMIT} items
+            </Text>
+          )}
+        </View>
         <Pressable
           style={styles.fab}
-          onPress={() => router.push("/add-garment")}
+          onPress={handleAddPress}
           accessibilityLabel="Add garment"
         >
           <Text style={styles.fabText}>+</Text>
@@ -148,10 +230,7 @@ export function WardrobeGridScreen() {
                 No garments yet. Add your first item to start building your
                 wardrobe.
               </Text>
-              <Pressable
-                style={styles.emptyCta}
-                onPress={() => router.push("/add-garment")}
-              >
+              <Pressable style={styles.emptyCta} onPress={handleAddPress}>
                 <Text style={styles.emptyCtaText}>+ Add a garment</Text>
               </Pressable>
             </>
@@ -177,6 +256,12 @@ export function WardrobeGridScreen() {
           )}
         />
       )}
+
+      <SelvPlusWaitlistSheet
+        visible={waitlistVisible}
+        source="wardrobe_grid"
+        onClose={() => setWaitlistVisible(false)}
+      />
     </View>
   );
 }
@@ -223,27 +308,38 @@ function GarmentCard({
   garment: GarmentRow;
   onPress: () => void;
 }) {
-  const { url } = useSignedImageUrl(garment.image_path);
+  const { url } = useGarmentImageUrl(garment);
   const [imageFailed, setImageFailed] = useState(false);
 
   const showImage = url && !imageFailed;
+  const fromShop = garment.source === "catalog";
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      {showImage ? (
-        <Image
-          source={{ uri: url }}
-          style={styles.cardImage}
-          resizeMode="cover"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-          {imageFailed && (
-            <Text style={styles.cardImageErrorText}>Image unavailable</Text>
-          )}
-        </View>
-      )}
+      <View>
+        {showImage ? (
+          <Image
+            source={{ uri: url }}
+            style={styles.cardImage}
+            resizeMode="cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+            {imageFailed && (
+              <Text style={styles.cardImageErrorText}>Image unavailable</Text>
+            )}
+          </View>
+        )}
+        {/* Tells an item the user owns apart from one they saved off the
+            Shop but haven't bought — the two look identical otherwise, and
+            only the second one has somewhere to buy it. */}
+        {fromShop && (
+          <View style={styles.shopBadge}>
+            <Text style={styles.shopBadgeText}>Shop</Text>
+          </View>
+        )}
+      </View>
       <Text style={styles.cardTitle} numberOfLines={1}>
         {garment.name || garment.category}
       </Text>
@@ -271,6 +367,10 @@ const styles = StyleSheet.create({
   },
   title: {
     ...type.title,
+  },
+  itemCount: {
+    ...type.subtle,
+    marginTop: 2,
   },
   fab: {
     width: 42,
@@ -363,6 +463,20 @@ const styles = StyleSheet.create({
     color: colors.faint,
     textAlign: "center",
     paddingHorizontal: 8,
+  },
+  shopBadge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    backgroundColor: colors.acid,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  shopBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.ink,
   },
   cardTitle: {
     fontSize: 14,
