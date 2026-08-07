@@ -2,6 +2,16 @@
 
 Handoff brief for an agent picking up the **marketing** workstream. Everything below reflects the project state as of this session (July 2026). The product side is being built in parallel; your job is positioning, creative, growth, and launch.
 
+> **Status update — 2026-08-07.** Three things in this brief moved after it was
+> written. (1) **Selv+ cannot be bought** — v1 ships no in-app purchase at all;
+> §5 is rewritten accordingly and no price or paid benefit may appear in
+> creative. (2) **The build has moved on** — §12's status summary is rewritten;
+> the app is a 3D character creator + 3D try-on + affiliate commerce, and it
+> has a test suite. (3) **The "late July 2026" ship target in §7 has passed**
+> and is not re-set here — confirm the current target before you build anything
+> time-sensitive around it. Everything else (brand, audience, channels, tools,
+> guardrails) still stands.
+
 ---
 
 ## 1. What the app is (one paragraph)
@@ -41,11 +51,14 @@ Handoff brief for an agent picking up the **marketing** workstream. Everything b
 
 ---
 
-## 5. Pricing (updated this session — reflect everywhere)
+## 5. Pricing (Free is the whole v1 product; Selv+ is planned, not purchasable)
 
-- **Free:** 3D avatar + **up to 25 wardrobe items** + unlimited outfit mixing + save/share fit cards. (The 25-item cap is now enforced in the app; "unlimited wardrobe" is NOT free.)
-- **Selv+ — $6.99/mo or $39.99/yr:** unlimited wardrobe, try-on of items you don't own, wardrobe analytics (cost-per-wear), priority rendering, early access.
-- **Try-before-you-buy:** affiliate commerce (commission on items tried-on then purchased) — never changes the user's price.
+- **Free — this is everything the app currently offers:** 3D character + **up to 25 wardrobe items** + unlimited outfit mixing + try-on + save/share fit cards. (The 25-item cap is enforced in the app; "unlimited wardrobe" is NOT free.)
+- **Selv+ — PLANNED / FUTURE. There is nothing to sell today.** v1 ships no in-app purchase: no StoreKit product, no RevenueCat dependency, and no entitlement check (`app/src/lib/pricing.ts` hardcodes every user to Free because there is no entitlement to read). Hitting the 25-item cap opens a **waitlist sheet** (`app/src/features/paywall/SelvPlusWaitlistSheet.tsx`), not a paywall; joining is free and is not a purchase.
+  - **Do not publish a price, a billing period, or a paid benefit list in any ad, caption, landing page, or store copy.** The intended price ($6.99/mo · $39.99/yr) and the intended benefits (unlimited wardrobe, try-on of unowned items, cost-per-wear analytics, priority rendering, early access) are recorded as a *plan* in `MARKETING_STRATEGY.md` §9 — treat that as a roadmap, not a rate card. Advertising them now sells something the binary cannot deliver.
+  - **The only accurate line today is:** "Selv+ is coming — join the list." When IAP actually ships, the price, the paywall screen, the auto-renewal disclosure, and the restored paid copy all land together (see `APP_STORE_LISTING.md` §11).
+  - Note the knock-on effects elsewhere in the plan: the "free Selv+ access" creator perk (§6 seeding) and the "10 referrals = free year of Selv+" waitlist milestone both promise a tier that does not exist yet. Don't offer either as a live incentive.
+- **Try-before-you-buy:** affiliate commerce (commission on items tried-on then purchased) — never changes the user's price. **This is the only commerce surface in v1.**
 - The free cap number lives in one constant (`app/src/lib/pricing.ts`, `FREE_WARDROBE_LIMIT = 25`) and can be changed if strategy shifts.
 
 ---
@@ -55,7 +68,7 @@ Handoff brief for an agent picking up the **marketing** workstream. Everything b
 - **TikTok/Reels organic** is the core engine. 5 content pillars: (1) digitize-my-closet transformation, (2) design your character / "wait till you see mine," (3) try-before-you-buy saves, (4) outfit-remix / capsule math, (5) fit battles/duets.
 - **Micro-creator seeding** (75–150 creators, 10K–100K followers, fashion/thrift niche), coordinated launch-week waves; macro reserved for the launch-day hero moment; convert organic over-performers to paid Spark Ads.
 - **Pinterest** — auto-published outfit-card pins; Gen Z discovery.
-- **Waitlist referral** — position-jump mechanic (each referral moves you up; milestones unlock Selv+).
+- **Waitlist referral** — position-jump mechanic (each referral moves you up). The planned milestone rewards are Selv+ unlocks, which **can't be honoured yet** (§5) — either reward with queue position and early access only, or hold the mechanic until there's a tier to unlock.
 - **The share-card loop ("every shared outfit is an ad")** — each saved outfit auto-generates a polished vertical share card of the user's own designed character, watermarked + "build your own" link. Modeled on Spotify Wrapped. This is the single highest-leverage organic mechanic — prioritize it in messaging.
 - **North-star metric:** Weekly Avatars Styled (unique users who build ≥1 complete outfit in 7 days). Activation target: >50% reach "first outfit on their own character" in session 1.
 
@@ -116,7 +129,7 @@ The user asked to **plan and build ads**, and the clarifying questions didn't ge
 
 - **Body-image guardrails (hard constraint):** the avatar is a *styling* tool, never a *body-evaluation* tool. No before/after body language, no weight-loss framing, no numeric body/outfit "scores," no beauty-bias imagery. Commit to diverse bodies/skin tones in all creative. Copy hypes, never judges. (Full section in MARKETING_STRATEGY.md §11.)
 - **No photo/scan framing for the avatar:** the avatar is built entirely in a character creator (skin, face, eyes, hair, brows, facial hair, body type, accessories) — don't write or generate ad creative implying a selfie, face scan, or body scan produces the avatar. Camera/photo imagery in creative should only ever be about the user's *clothes*.
-- **Ad-claim accuracy:** don't claim "unlimited wardrobe" for Free; don't promise the Phase-2 social feed as if it's live in v1; keep try-before-you-buy (affiliate/physical goods) visually distinct from the Selv+ subscription.
+- **Ad-claim accuracy:** don't claim "unlimited wardrobe" for Free; don't promise the Phase-2 social feed as if it's live in v1; **don't present Selv+ as buyable — it isn't (§5)**; and keep try-before-you-buy (affiliate/physical goods) visually distinct from Selv+ messaging, so a "join the list" prompt is never mistaken for a checkout (this separation gets stricter, not looser, once a real subscription paywall exists).
 - **Name risk:** don't hard-bake "Selv" into expensive assets until trademark clearance is done.
 - **Environment limits (if using the sandbox):** binaries can't be downloaded into the repo from the sandbox; some files can't be deleted there; bash calls cap at ~45s and background processes don't persist. Generate media via the MCP tools and reference/host outputs directly.
 
@@ -124,4 +137,6 @@ The user asked to **plan and build ads**, and the clarifying questions didn't ge
 
 ## 12. Quick status of the rest of the build (context only)
 
-Product is pre-launch: 3D avatar render spike + Day-2 measurement→shape system + account deletion + the 25-item free-cap enforcement are implemented; the app still needs a clean `npm install` + on-device test on the founder's machine. Two harmless neutralized test stubs (`app/src/lib/_pricing_smoke.ts`, `app/src/features/avatar3d/_smoke.ts`) can be deleted. None of this blocks marketing work — the waitlist is your live funnel today.
+Product is still pre-launch, but further along than earlier drafts of this brief said. **Implemented:** the character creator (onboarding builds the avatar — no photo, no measurements), 3D try-on, the wardrobe with 25-item cap enforcement, affiliate/try-before-you-buy commerce with source-controlled Supabase Edge Functions (`delete-account`, `affiliate-postback`, `product-feed-ingest`), in-app account deletion, and the Selv+ waitlist capture at the cap. There is also a **jest test harness** — 6 suites, 244 tests passing as of 2026-08-07 (`npm test` in `app/`); the older "no automated tests" line in this brief was wrong and has been removed. The app still needs a clean `npm install` + on-device test on the founder's machine.
+
+**Genuinely still open:** crash reporting is not wired, and analytics is not wired — so there is no event instrumentation behind the funnel metrics in §6 yet. Assume you cannot measure in-app activation until that lands; plan around waitlist-side and platform-side numbers. None of this blocks marketing work — the waitlist is your live funnel today.

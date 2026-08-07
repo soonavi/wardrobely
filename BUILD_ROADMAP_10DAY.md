@@ -24,10 +24,10 @@
 >    (`app/supabase/functions/`). Garments are stored as uploaded photos with
 >    metadata, so Day 5's background-removal step is **unbuilt, not done**.
 > 3. **"Automated test suite" is no longer cut.** The repo has a jest-expo
->    harness — 237 tests across 6 suites, `npm test` in `app/` — so ignore its
->    appearance in "What We Cut" below. Crash reporting and analytics (Day 9,
->    and the last line of the Definition of Done) genuinely *are* still
->    unwired.
+>    harness — 6 suites, 244 tests passing as of 2026-08-07, `npm test` in
+>    `app/` — so ignore its appearance in "What We Cut" below. Crash reporting
+>    and analytics (Day 9, and the last line of the Definition of Done)
+>    genuinely *are* still unwired.
 >
 > For current state read `PRODUCT_SPEC.md`, `AVATAR_CREATOR_PLAN.md`, and the
 > code. Anything below that contradicts them loses.
@@ -69,10 +69,10 @@ Companion to `PRODUCT_SPEC.md`. This is a day-by-day plan to ship an installable
 
 ### Day 4 — Auth, schema, onboarding flow
 **Goal:** wire the real user flow around the proven 3D pipeline.
-- Extend the existing Supabase schema: add `avatars` (measurements, `blendshape_weights` jsonb, preview thumbnail), `garment_templates` (the 3 locked templates from Day 3), and add `template_id`/`texture_path`/`source`/`processing_status` columns to the existing `garments` table. Apply RLS consistent with the existing owner-only pattern.
-- Confirm Supabase Auth email/password sign-up/sign-in works end-to-end (already scaffolded — verify, don't rebuild).
-- Build the onboarding UI: sign up → measurement input form (height, weight, chest, hip, units toggle) → skin-tone swatch picker → generates and shows the avatar using Day 1–3's pipeline.
-- **Deliverable/checkpoint:** a brand-new user can sign up, enter measurements, and see their own rotatable avatar.
+- Extend the existing Supabase schema: add `avatars`, `garment_templates` (the 3 locked templates from Day 3), and add `template_id`/`texture_path`/`source`/`processing_status` columns to the existing `garments` table. Apply RLS consistent with the existing owner-only pattern. (*Shipped as:* `avatars` exists in `app/supabase/schema.sql` with an owner-only `"own avatar"` policy, but it carries a **`customization` jsonb** — the character-creator selections — as the live source of the avatar. The measurement columns and `shape_params` are nullable legacy fields. `garment_templates` was never created.)
+- Confirm Supabase Auth sign-up/sign-in works end-to-end (already scaffolded — verify, don't rebuild). (*Shipped as:* email OTP via `signInWithOtp`/`verifyOtp`, not email/password.)
+- Build the onboarding UI: sign up → **character creator** (skin tone, face shape, eye shape + color, hair style + color, brows, facial hair, body type, accessories) → the character re-renders live as it's edited, using Day 1–3's pipeline. **No photo, no scan, no measurement form, no tape measure.** This is what shipped: `app/src/features/creator/CharacterCreatorScreen.tsx`, routed at `app/app/onboarding.tsx`; option sets live in `app/src/features/creator/customization.ts`. Saving writes the `customization` jsonb via `saveCustomization()` and syncs `profiles.build` from the chosen body type, which is the gate `app/app/_layout.tsx` checks before letting a user into the tabs. The measurement-based `OnboardingScreen` was deleted, not just unrouted.
+- **Deliverable/checkpoint:** a brand-new user can sign up, design a character, and see their own rotatable avatar.
 
 ### Day 5 — Garment upload pipeline
 **Goal:** get a real user photo turned into a wardrobe item.

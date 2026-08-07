@@ -1,7 +1,13 @@
 /**
  * Pricing / entitlement rules — single source of truth for the Free vs.
- * Selv+ wardrobe cap. See APP_STORE_LISTING.md: "Selv+ ($6.99/mo)
- * unlocks unlimited wardrobe items...".
+ * Selv+ wardrobe cap.
+ *
+ * This used to quote APP_STORE_LISTING.md's "Selv+ ($6.99/mo) unlocks
+ * unlimited wardrobe items…" as current fact. That copy has since been pulled
+ * from the listing: Selv+ is not purchasable, v1 ships no in-app purchase, and
+ * hitting the cap opens a waitlist (features/paywall/SelvPlusWaitlistSheet).
+ * The price survives in that document only as a labelled prior draft target,
+ * so do not treat it as a live figure or reintroduce it into user-facing copy.
  */
 
 /**

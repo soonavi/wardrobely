@@ -1,5 +1,7 @@
 > **Brand update (post-dated):** the app name is now **Selv** (see `SELV_VERIFICATION.md`). This document predates the rename — the former working names "Drobe"/"Twinit" and the old naming shortlist below are kept as historical rationale only. **Section 3 (Naming) is historical and untouched by the pivot note below** — it documents the naming/trademark research as it happened and should not be edited to match current product framing.
 >
+> **Monetization note (2026-08-07):** **Selv+ is a plan, not a product.** v1 ships no in-app purchase — no StoreKit product, no RevenueCat dependency, no entitlement check — and hitting the 25-item wardrobe cap opens a **waitlist capture**, not a paywall. Section 9's freemium structure and its price points are the *intended* model and are labelled as such below; read every other Selv+ reference in this document (the "free Selv+ access" creator perk in §6.2, the "free year of Selv+" referral milestone in §6.4, and the Day-60 "paid conversions live" target in §10) as **contingent on a paid tier that has not shipped**. Nothing in this document may be published as a live offer or price. The only accurate public line today is "Selv+ is coming — join the list."
+>
 > **Pivot note (2026-07-20):** the product no longer builds an avatar from a photo of the user's body. Users **design a customizable 3D character** in a character creator (skin, face, eyes, hair, brows, facial hair, body type, accessories) — no photo, no measurements. Everywhere below that says "photoreal avatar of your actual body," "avatar reveal from a photo," or similar, read it as **"design your 3D self / build your character"** instead — still framed as *your* identity, just user-authored rather than photo-derived. "Dress up as yourself" still works, and is now literally true. See `AVATAR_CREATOR_PLAN.md` for the product rationale.
 
 # Marketing & Go-to-Market Strategy
@@ -18,7 +20,7 @@ Gen Z already performs "fit checks" for an audience — TikTok, Snap, group chat
 
 **Top 2 growth channels:** TikTok/Reels organic content (fit-check and "digitize my closet" hook formats) + creator seeding (50–150 micro creators in the fashion/thrift/style niches, seeded pre-launch). Both are cheap, native to the audience, and compound through the built-in shareable-outfit-card loop (Section 6.4).
 
-**Pricing model:** Freemium. Free = build your avatar, digitize up to 25 items, unlimited outfit-building, save/share outfits. **Selv+** ($6.99/mo or $39.99/yr) unlocks unlimited closet, try-on of items you don't own ("shop the fit"), advanced outfit analytics, and priority avatar rendering. Secondary revenue via affiliate commerce on try-before-you-buy and brand placement.
+**Pricing model:** Freemium — **planned**. What ships in v1 is the Free tier only: build your avatar, digitize up to 25 items, unlimited outfit-building, save/share outfits. A **Selv+** paid tier (unlimited closet, try-on of items you don't own, advanced outfit analytics, priority rendering) is the intended second tier and is specified in Section 9, but **it is not built and cannot be purchased** — the wardrobe cap opens a waitlist, not a paywall. The revenue that is live today is **affiliate commerce on try-before-you-buy**; brand placement is a later line.
 
 **Naming recommendation:** Retire "Drobe" — it's actively used by a near-identical competitor already live on the App Store (joindrobe.com / getdrobe.com / drobeme.ai — see Section 3). Top pick from the alternatives: **Fitcast** or **Mimic**. Full rationale and domain/handle checks in Section 3.
 
@@ -195,14 +197,18 @@ This is the core organic engine, modeled on Spotify Wrapped (500M shares, zero p
 
 ## 9. Pricing & Monetization
 
-### Freemium structure
+### Freemium structure — target model, not the current one
 
-| Tier | Price | Includes |
-|---|---|---|
-| **Free** | $0 | Full avatar creation, up to 25 digitized wardrobe items, unlimited outfit-building from owned items, save/share outfit cards, basic try-on of a limited rotating catalog |
-| **Selv+** | $6.99/mo or $39.99/yr (~52% discount, standard app-subscription annual-discount structure) | Unlimited wardrobe items, unlimited try-on of items you don't own ("shop the fit" across partner catalog), advanced wardrobe analytics (cost-per-wear, most/least worn), priority avatar rendering & higher-fidelity exports, early access to new features/drops |
+**What is live:** the **Free** tier, and only the Free tier. Selv+ is unbuilt: there is no in-app purchase in v1, so there is no price to quote and nothing to convert. The table below, and the rationale under it, describe the **intended** structure for whenever the paid tier ships. **Nothing in this section may be lifted into a landing page, an ad, an app-store description, a press mention, or a launch-week plan** — a price that appears anywhere public reads as a live price, and there is no product behind it.
 
-This sits within the benchmark range for creative/lifestyle app subscriptions ($4.99–$29.99/mo per 2026 category data) while staying accessible to a primarily teen/early-20s, less-disposable-income audience — priced closer to the low end deliberately, since freemium virality (not paywall aggression) is the primary growth lever per this plan. Expect ~2–5% free-to-paid conversion at steady state per 2026 freemium benchmarks; a 7-day free trial on Selv+ should be tested given 2025–26 data showing 25–50% trial-to-paid conversion for well-targeted consumer trials.
+| Tier | Status | Price (target) | Includes |
+|---|---|---|---|
+| **Free** | **Live in v1** | $0 | Full avatar creation via the character creator, up to 25 digitized wardrobe items, unlimited outfit-building from owned items, save/share outfit cards, try-on including items the user doesn't own (affiliate catalog) |
+| **Selv+** | **Planned — not purchasable** | Target only; not set publicly and not to be quoted until IAP ships | Unlimited wardrobe items, advanced wardrobe analytics (cost-per-wear, most/least worn), priority avatar rendering & higher-fidelity exports, early access to new features/drops. Users who hit the 25-item cap are offered the **waitlist** for this, free, with no purchase |
+
+Pricing rationale, to be re-validated when the tier is actually specced. (The figure this section previously published as the live price — $6.99/mo or $39.99/yr, a ~52% annual discount — is recorded here as the *prior draft target* so the reasoning isn't lost, not as a number anyone may quote.) Creative/lifestyle app subscriptions benchmark at $4.99–$29.99/mo per 2026 category data, and this audience is primarily teen/early-20s with less disposable income, so the target belongs near the low end — freemium virality, not paywall aggression, is the primary growth lever in this plan. Steady-state free-to-paid for comparable apps runs ~2–5%, and a 7-day free trial is worth testing given 2025–26 data showing 25–50% trial-to-paid for well-targeted consumer trials. **All of these are planning inputs for a tier that does not exist; none of them are commitments, and none belong in launch guidance until there is a product to attach them to.**
+
+Note one thing the shipped Free tier does *differently* from what this table originally assumed: **trying on an item the user doesn't own is not gated at all.** "Try it on" from a product page goes straight to the 3D try-on screen with no plan check — it's the top of the affiliate funnel, which earns more the fewer gates sit in front of it. The only thing the 25-item cap governs is *saving* an item into the wardrobe. If Selv+ is specced later, don't reflexively claw the ungated try-on back behind it.
 
 ### Other revenue
 - **Affiliate/commerce on try-before-you-buy:** commission on purchases made through the "shop the fit" flow when a user buys an item they tried on virtually — directly monetizes the highest-intent moment in the product.
