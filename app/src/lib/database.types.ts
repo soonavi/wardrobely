@@ -32,6 +32,39 @@ export type ProfileRow = {
   height_cm: number | null;
   weight_kg: number | null;
   build: Build | null;
+
+  /**
+   * Birth YEAR only — no month, no day. Half of Selv's 13+ age gate
+   * (LAUNCH_CHECKLIST.md §1, legal/PRIVACY_POLICY.md §12).
+   *
+   * DELIBERATELY NOT A BIRTHDATE. A day-precision date of birth is the most
+   * sensitive field the app could hold and a permanent one — you cannot
+   * rotate it after a breach — so the exact check runs inside the
+   * `record_age_check` RPC, which takes the full birthdate as an argument,
+   * evaluates it to the day, and discards it. What persists is this coarse
+   * signal plus `age_verified_on`, which together keep the verdict auditable
+   * without retaining the date. See supabase/migrations/006_age_gate.sql.
+   *
+   * READ-ONLY TO CLIENTS: the column-level grants in that migration revoke
+   * UPDATE/INSERT on it, so it is absent from the `Update`/`Insert` shapes
+   * below and a write would fail with 42501 even though RLS allows the row.
+   */
+  birth_year: number | null;
+
+  /**
+   * The day an exact >=13 check passed, or `null` if this account has never
+   * been age-checked. `null` is what every row predating the age gate holds,
+   * and it is what routes a user to the age step in app/_layout.tsx.
+   *
+   * A verdict is permanent — nobody gets younger — so a timestamped pass is a
+   * complete and permanent proof and there is nothing to re-derive later.
+   * That is precisely why the birthdate itself does not need keeping.
+   *
+   * READ-ONLY TO CLIENTS, same as `birth_year`. Written only by the
+   * `record_age_check` RPC.
+   */
+  age_verified_on: string | null;
+
   created_at: string;
 };
 
@@ -460,8 +493,19 @@ export type Database = {
     Tables: {
       profiles: {
         Row: ProfileRow;
-        Insert: Partial<ProfileRow> & { id: string };
-        Update: Partial<ProfileRow>;
+        /**
+         * `birth_year`/`age_verified_on` are omitted from both write shapes,
+         * and the omission is enforced, not stylistic: 006_age_gate.sql
+         * revokes client INSERT/UPDATE on those two columns and re-grants
+         * only the rest, so PostgREST answers 42501 for a write RLS would
+         * otherwise have allowed. They move only through the
+         * `record_age_check` RPC below. Keeping them out of the types means
+         * that shows up as a compile error rather than a runtime one.
+         */
+        Insert: Omit<Partial<ProfileRow>, "birth_year" | "age_verified_on"> & {
+          id: string;
+        };
+        Update: Omit<Partial<ProfileRow>, "birth_year" | "age_verified_on">;
         Relationships: [];
       };
       garments: {
@@ -665,6 +709,39 @@ export type Database = {
           p_source: ClickSource;
         };
         Returns: AffiliateClickRow;
+      };
+
+      /**
+       * Run the 13+ age check and record its verdict on the caller's profile.
+       *
+       * The only way a client can write `profiles.birth_year` /
+       * `profiles.age_verified_on` — column-level grants revoke both, for the
+       * same reason `affiliate_clicks` has no insert policy: the row carries
+       * a term the client must not be able to state. A forged commission rate
+       * invoices a partner for their own order value; a forged age verdict is
+       * a 12-year-old with an account and a privacy policy saying we have
+       * none.
+       *
+       * `p_birthdate` is `YYYY-MM-DD` and is an *argument*, never a column.
+       * The `security definer` function in schema.sql evaluates it to the day
+       * against `current_date` and then discards it; only the year and the
+       * verification date survive the call.
+       *
+       * Raises rather than returning null: `42501` when unauthenticated,
+       * `22004` for a null date, `22007` for a future or implausible one, and
+       * `P0001` for under-13. `recordAgeCheck` in api/profiles.ts maps those
+       * to user-facing strings and is the only intended call site.
+       *
+       * Declared as a non-SETOF composite return, so `Returns` is a single
+       * row rather than an array — same as `create_affiliate_click`, and
+       * api/profiles.ts normalises both shapes anyway rather than betting on
+       * PostgREST's version.
+       */
+      record_age_check: {
+        Args: {
+          p_birthdate: string;
+        };
+        Returns: ProfileRow;
       };
     };
     Enums: Record<string, never>;

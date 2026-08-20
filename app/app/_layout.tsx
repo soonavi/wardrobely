@@ -20,13 +20,14 @@ import { colors, fonts } from "../src/lib/theme";
 /**
  * Root layout: wires up the Supabase auth session into useAuthStore, then
  * gates navigation based on session + profile state:
- *   - no session          -> (auth)/sign-in
- *   - session, no build   -> /onboarding
- *   - session + build     -> (tabs)/*
+ *   - no session               -> (auth)/sign-in
+ *   - session, no age verdict  -> (auth)/sign-in  (the 13+ age gate)
+ *   - session, no build        -> /onboarding
+ *   - session + verdict + build-> (tabs)/*
  *
  * The profile lives in useAuthStore so screens that change it (onboarding,
- * profile settings) update it directly and this gate reacts immediately —
- * no refetch loop between /onboarding and the tabs.
+ * profile settings, the age gate) update it directly and this gate reacts
+ * immediately — no refetch loop between /onboarding and the tabs.
  */
 export default function RootLayout() {
   const session = useAuthStore((s) => s.session);
@@ -91,6 +92,36 @@ export default function RootLayout() {
     const inOnboarding = segmentsRoot === "onboarding";
 
     if (!session) {
+      if (!inAuthGroup) {
+        router.replace("/(auth)/sign-in");
+      }
+      return;
+    }
+
+    // Minimum account age of 13 — LAUNCH_CHECKLIST.md §1, and the control
+    // legal/PRIVACY_POLICY.md §12 already tells users we run. This sits ahead
+    // of the build check because it is the one gate that has to hold before
+    // the account does anything at all, including build an avatar.
+    //
+    // The destination is the sign-in screen rather than a route of its own,
+    // and that is deliberate: for a brand-new signup the age question is
+    // asked *before* the email step (requesting an OTP creates the account,
+    // so a rejected under-13 must never get that far), which means the gate
+    // already lives inside (auth). Sending an already-signed-in user back to
+    // the same screen keeps one implementation of the question instead of two
+    // that can drift, and SignInScreen renders the age step on its own — with
+    // a "not you? sign out" link — when it sees a session with no verdict.
+    //
+    // WHO LANDS HERE WITH A SESSION: every account created before the gate
+    // shipped. 006_age_gate.sql deliberately did not backfill them, because a
+    // compliance control that reports success for checks it never ran is
+    // worse than a missing one. They answer once and never see this again.
+    //
+    // FAILS CLOSED. A null profile — a fetch that errored, not just an
+    // unverified user — also lands here rather than falling through to
+    // /onboarding as it used to. Both are stuck states; for an age gate the
+    // safe one is the gate.
+    if (!profile?.age_verified_on) {
       if (!inAuthGroup) {
         router.replace("/(auth)/sign-in");
       }
