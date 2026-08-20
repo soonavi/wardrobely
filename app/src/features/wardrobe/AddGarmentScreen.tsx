@@ -17,7 +17,7 @@ import { createGarment } from "../../lib/api/garments";
 import type { GarmentCategory } from "../../lib/database.types";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import { CATEGORY_OPTIONS } from "./types";
-import { colors, radius, type } from "../../lib/theme";
+import { colors, radius, spacing, type } from "../../lib/theme";
 import { SelvPlusWaitlistSheet } from "../paywall/SelvPlusWaitlistSheet";
 import { wardrobeLimitMessage } from "../../lib/pricing";
 
@@ -200,6 +200,44 @@ export function AddGarmentScreen() {
               </Text>
             </Pressable>
           </View>
+
+          {/*
+            LAUNCH_CHECKLIST.md §5 / MARKETING_STRATEGY.md §11: the data
+            promise has to live on the upload screen itself, not behind a
+            privacy-policy link, and has to be readable at the moment the
+            photo is chosen. So it sits directly under the two picker
+            buttons, always expanded — no "learn more" disclosure.
+
+            Deliberately styled as a quiet note (surfaceAlt + muted text),
+            not a warning: §11 asks for clear data controls, and a danger-
+            coloured banner would read as a risk alert about an action we are
+            actively inviting the user to take.
+
+            Every clause is verified, not aspirational:
+            - "never used to train AI models" — nothing in this app trains a
+              model, and no third-party image processor is wired up. The
+              remove.bg step described in legal/DATA_HANDLING.md §2c is not
+              built; createGarment() uploads straight to our own bucket.
+              Matches legal/PRIVACY_POLICY.md §7.
+            - "stored privately / never sold" — the `garments` bucket is
+              private with owner-only RLS; PRIVACY_POLICY.md lines 17 and 93.
+            - "one tap and a confirm ... erased from storage" — deleteGarment()
+              in lib/api/garments.ts removes the storage object *before* the
+              row and aborts if that fails, and a user photo always carries an
+              image_path. The confirm step is named rather than glossed as a
+              bare "one tap", because GarmentDetailScreen does show an Alert —
+              the same "one tap and one confirmation" wording the privacy
+              policy uses for account deletion.
+          */}
+          <View style={styles.dataNote}>
+            <Text style={styles.dataNoteTitle}>Your photos stay yours</Text>
+            <Text style={styles.dataNoteBody}>
+              Photos of your clothes are stored privately, never sold, and
+              never used to train AI models. Delete an item whenever you like
+              — one tap and a confirm, and its photo is erased from our
+              storage too.
+            </Text>
+          </View>
         </View>
 
         <Text style={styles.label}>Category</Text>
@@ -339,6 +377,25 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  dataNote: {
+    marginTop: spacing.sm,
+    padding: spacing.sm + spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+  },
+  dataNoteTitle: {
+    fontFamily: type.body.fontFamily,
+    fontWeight: "600",
+    fontSize: 13,
+    color: colors.ink,
+    marginBottom: 2,
+  },
+  dataNoteBody: {
+    fontFamily: type.body.fontFamily,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
   },
   label: {
     ...type.label,
