@@ -282,8 +282,13 @@ create index if not exists brand_api_keys_brand_idx
 -- public.set_updated_at() already exists from the base schema; recreate it
 -- defensively so this migration also applies to a project provisioned before
 -- that function landed.
+-- Pinned empty search_path, matching selv_product_search_text above. Keep it:
+-- without it, re-applying this file silently reverts what 007 sets and the
+-- database linter's function_search_path_mutable finding comes back.
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;

@@ -1,0 +1,36 @@
+-- ===========================================================================
+-- 007_pin_function_search_path.sql — pin search_path on the updated_at triggers
+-- ===========================================================================
+-- Closes the two `function_search_path_mutable` findings Supabase's database
+-- linter reports (lint 0011). Every other function in this schema already
+-- pins an empty search_path — public.selv_product_search_text (002),
+-- public.create_affiliate_click (003), public.record_age_check (006) — and
+-- these two were the only holdouts.
+--
+-- WHY IT MATTERS LESS HERE, AND IS STILL WORTH DOING. Both are trigger
+-- functions and both are SECURITY INVOKER, so they already run with the
+-- caller's own privileges: there is no definer boundary for a hijacked
+-- unqualified name to cross, which is what makes the definer cases
+-- (create_affiliate_click, record_age_check) the sharp ones. What remains is
+-- that a role-level or database-level `search_path` change silently alters
+-- how `now()` resolves inside them. Both bodies are two statements over
+-- `new.updated_at` and `now()`, so the realistic blast radius is small — this
+-- is consistency with the convention the rest of the schema already follows,
+-- not an incident waiting to happen.
+--
+-- ALTER FUNCTION rather than CREATE OR REPLACE, deliberately: it attaches the
+-- setting without restating either body, so there is no opportunity to
+-- transcribe one of them wrong. `now()` lives in pg_catalog, which is always
+-- implicitly searched, so both keep resolving under an empty path.
+--
+-- Re-runnable: ALTER FUNCTION ... SET is absolute, not additive.
+alter function public.set_updated_at() set search_path = '';
+
+-- public.touch_updated_at() has no definition anywhere in this repository —
+-- it was applied straight to the project (it predates the migrations/
+-- directory, most likely via the dashboard alongside
+-- `avatars_and_garment_templates`). It is left in place rather than dropped
+-- because dropping a function the repo cannot recreate is not reversible from
+-- a checkout; if a future migration ever consolidates the two, that is where
+-- it belongs, with the trigger inventory checked first.
+alter function public.touch_updated_at() set search_path = '';

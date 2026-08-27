@@ -230,59 +230,6 @@ function HourglassBody() {
   );
 }
 
-/** Pear: narrower shoulders, wider hips/thighs. */
-function PearBody() {
-  return (
-    <>
-      <HeadAndNeck />
-      <Path
-        d="
-          M 115 104
-          Q 150 97 185 104
-          L 190 169
-          Q 200 198 218 255
-          Q 224 291 210 316
-          L 200 320
-          Q 150 331 100 320
-          L 90 316
-          Q 76 291 82 255
-          Q 100 198 110 169
-          Z
-        "
-        fill={SILHOUETTE_COLOR}
-        stroke={SILHOUETTE_STROKE}
-        strokeWidth={2}
-      />
-      {/* Arms */}
-      <Path
-        d="M 112 111 Q 95 239 98 426 L 110 431 Q 106 251 122 123 Z"
-        fill={SILHOUETTE_COLOR}
-        stroke={SILHOUETTE_STROKE}
-        strokeWidth={2}
-      />
-      <Path
-        d="M 188 111 Q 205 239 202 426 L 190 431 Q 194 251 178 123 Z"
-        fill={SILHOUETTE_COLOR}
-        stroke={SILHOUETTE_STROKE}
-        strokeWidth={2}
-      />
-      {/* Legs */}
-      <Path
-        d="M 100 320 L 96 585 L 128 585 L 138 323 Z"
-        fill={SILHOUETTE_COLOR}
-        stroke={SILHOUETTE_STROKE}
-        strokeWidth={2}
-      />
-      <Path
-        d="M 200 320 L 204 585 L 172 585 L 162 323 Z"
-        fill={SILHOUETTE_COLOR}
-        stroke={SILHOUETTE_STROKE}
-        strokeWidth={2}
-      />
-    </>
-  );
-}
-
 /** Apple: fuller midsection, narrower hips, slimmer legs. */
 function AppleBody() {
   return (

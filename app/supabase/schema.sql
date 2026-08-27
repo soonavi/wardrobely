@@ -169,8 +169,13 @@ create table public.avatars (
 -- Keeps avatars.updated_at fresh on every update (upsert's ON CONFLICT DO
 -- UPDATE path fires BEFORE UPDATE triggers too, so upsertMyAvatar's calls
 -- are covered without the client needing to set this itself).
+-- Pinned empty search_path, matching every other function in this schema
+-- (selv_product_search_text, create_affiliate_click, record_age_check). now()
+-- is in pg_catalog, which is always implicitly searched, so it still resolves.
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
