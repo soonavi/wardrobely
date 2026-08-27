@@ -16,8 +16,82 @@ create table public.profiles (
   height_cm integer,
   weight_kg integer,
   build profile_build,
-  created_at timestamptz not null default now()
+
+  -- --- Minimum account age (13+) -----------------------------------------
+  -- LAUNCH_CHECKLIST.md §1 requires a minimum age of 13 that is *enforced*,
+  -- not merely stated, and legal/PRIVACY_POLICY.md §12 already promises users
+  -- "we enforce a minimum age at signup". These two columns plus
+  -- public.record_age_check() below are that enforcement.
+  --
+  -- DELIBERATELY NOT A BIRTHDATE. A day-precision date of birth is the most
+  -- sensitive field this app could hold — a permanent identifier you cannot
+  -- rotate after a breach — and legal/DATA_HANDLING.md §2a rates `profiles`
+  -- at Medium today. So the exact check runs inside record_age_check(), which
+  -- takes the full birthdate as an *argument*, evaluates it to the day, and
+  -- discards it. What persists is the verdict and the coarsest signal that
+  -- keeps the verdict auditable:
+  --
+  --   birth_year       year only — no month, no day
+  --   age_verified_on  the day an exact >=13 check passed, or null
+  --
+  -- Null/null means "never age-checked", which is what every row predating
+  -- the gate holds and what routes a user to the age step in app/_layout.tsx.
+  -- A bare `age_ok boolean` was rejected: a claim written by a client that
+  -- nobody can re-derive is the ToS-only enforcement the checklist is
+  -- complaining about, moved into a column. These two can be re-checked
+  -- against each other forever, by anyone with read access, with no
+  -- application code in the loop.
+  --
+  -- Clients cannot write either one — see the column-level grants in the RLS
+  -- section. The idempotent, re-runnable form of all of this (plus the full
+  -- reasoning, the backfill decision for existing rows, and the worked
+  -- boundary cases) lives in supabase/migrations/006_age_gate.sql; keep the
+  -- two in sync.
+  birth_year smallint,
+  age_verified_on date,
+
+  created_at timestamptz not null default now(),
+
+  -- "Either this profile has never been age-checked, or it carries a birth
+  -- year at least 13 years before the day we checked it" — PRIVACY_POLICY.md
+  -- §12's claim, written as something the database refuses to violate.
+  --
+  -- Necessary, not sufficient, and honestly so: keeping only the year means
+  -- (2013, 2026-01-05) satisfies this and could describe a 12-year-old. The
+  -- exact day-precision test is record_age_check(); this is the backstop that
+  -- catches the realistic failure — a bad backfill or a future writer that
+  -- sets one column and forgets the other. Tightening it would require
+  -- retaining month and day, which is the trade this design exists to refuse.
+  --
+  -- The is-null/is-not-null pairing forbids both half-states: a verdict with
+  -- no birth year is unauditable, and a birth year with no verdict is a
+  -- retained fragment of birth data with no purpose.
+  --
+  -- age_verified_on is a `date` rather than a `timestamptz` specifically so
+  -- `extract(year from ...)` here is immutable; over a timestamptz the year
+  -- would depend on the session TimeZone.
+  constraint profiles_age_verified_consistent check (
+    (birth_year is null and age_verified_on is null)
+    or (
+      birth_year is not null
+      and age_verified_on is not null
+      -- Typo catcher, not a compliance rule: year 20 passes the >=13
+      -- arithmetic just fine.
+      and birth_year between 1900 and 2200
+      and birth_year <= extract(year from age_verified_on)::int - 13
+    )
+  )
 );
+
+-- Operational: "how many accounts still owe us an answer". Partial, so it
+-- indexes only the rows that still owe one and shrinks toward empty as the
+-- backlog from 006_age_gate.sql drains:
+--   select count(*) from public.profiles where age_verified_on is null;
+-- If that count stops falling while signups continue, the client gate has
+-- regressed and this is the metric that says so.
+create index profiles_age_unverified_idx
+  on public.profiles(created_at)
+  where age_verified_on is null;
 
 -- System-owned, shared 3D garment meshes (t-shirt, jeans, etc.) that user
 -- garments are auto-textured onto — PRODUCT_SPEC.md §5b/§7. Public
@@ -137,6 +211,119 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- --- Minimum account age (13+): the gate ------------------------------------
+-- The only way a value is ever written to profiles.birth_year /
+-- profiles.age_verified_on. Same shape and the same reasoning as
+-- public.create_affiliate_click() further down: the row carries a term the
+-- client must not be able to state, so the client states the *input* and the
+-- database states the *conclusion*. There, a forged commission_rate_bps
+-- invoices a partner for their own order value. Here, a forged age verdict is
+-- a 12-year-old with an account and a privacy policy claiming we have none.
+--
+-- Takes the full birthdate, checks it to the day, and throws it away:
+-- `p_birthdate` is a function argument, never a column, and it is deliberately
+-- not interpolated into any of the raise messages below (create_affiliate_click
+-- interpolates product ids; a product id is not personal data and a date of
+-- birth is).
+--
+-- Pinned empty search_path and schema-qualified names, matching
+-- create_affiliate_click — a definer function that resolves unqualified names
+-- through the caller's search_path can be pointed at someone else's
+-- `profiles`. pg_catalog is implicitly searched, so builtin types still
+-- resolve.
+--
+-- The re-runnable form, with the full boundary-case walkthrough and the
+-- backfill decision for pre-existing rows, is in
+-- supabase/migrations/006_age_gate.sql.
+create or replace function public.record_age_check(p_birthdate date)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id    uuid := auth.uid();
+  v_today      date := current_date;
+  v_birth_year smallint;
+  v_row        public.profiles;
+begin
+  -- Selv has no anonymous accounts. For a new signup the gate is answered
+  -- *before* the OTP is requested (src/features/auth/SignInScreen.tsx), so no
+  -- auth.users row is ever created for a rejected under-13; by the time this
+  -- runs there is a session. A null uid is a probe, not a flow.
+  if v_user_id is null then
+    raise exception 'record_age_check: authentication required'
+      using errcode = '42501'; -- insufficient_privilege -> 401/403
+  end if;
+
+  if p_birthdate is null then
+    raise exception 'record_age_check: a date of birth is required'
+      using errcode = '22004'; -- null_value_not_allowed
+  end if;
+
+  -- Shape complaints come before the age verdict on purpose: someone who
+  -- mistypes the year should be told to check the date, not told they are too
+  -- young to use the app.
+  if p_birthdate > v_today then
+    raise exception 'record_age_check: date of birth is in the future'
+      using errcode = '22007'; -- invalid_datetime_format
+  end if;
+
+  -- Typo catcher matching MAX_PLAUSIBLE_AGE_YEARS in
+  -- src/features/age/minimumAge.ts and the constraint's 1900 floor. Not a
+  -- compliance rule — someone born in 1850 is comfortably over 13.
+  if p_birthdate < v_today - interval '120 years' then
+    raise exception 'record_age_check: date of birth is not plausible'
+      using errcode = '22007';
+  end if;
+
+  -- THE CHECK. Exact to the day, and the only place in the system that is.
+  -- `v_today - interval '13 years'` is the latest birthdate already 13 today,
+  -- so "born after the cutoff" means too young. Turning 13 exactly today
+  -- passes (you are 13 on your 13th birthday, not the day after); turning 13
+  -- tomorrow does not. A 29 Feb birthday lands on 1 March in non-leap years,
+  -- because Postgres clamps the cutoff to a real date — the conservative
+  -- reading, and the one ageInYearsOn() in src/features/age/minimumAge.ts
+  -- produces from the same inputs.
+  --
+  -- `current_date` is the date in the database session's TimeZone (UTC on
+  -- Supabase) while the client previewed the answer against the device
+  -- calendar; they can differ by a day at the edges. This one is
+  -- authoritative and both directions of disagreement are safe — one of the
+  -- two refuses first, and neither ordering admits an under-13.
+  if p_birthdate > (v_today - interval '13 years')::date then
+    raise exception 'record_age_check: minimum age is 13'
+      using errcode = 'P0001'; -- raise_exception; mapped to user copy client-side
+  end if;
+
+  v_birth_year := extract(year from p_birthdate)::smallint;
+
+  -- Upsert, not update: handle_new_user() above creates the row so the
+  -- conflict branch is what runs in practice, but an account predating that
+  -- trigger would otherwise be permanently unable to pass a gate it cannot get
+  -- past. Re-recording is allowed and idempotent-in-effect — the client
+  -- retries this call if a concurrent profile fetch clobbers its local copy,
+  -- and two different dates that each passed >=13 on their own verification
+  -- date both leave the constraint and the compliance claim intact.
+  insert into public.profiles (id, birth_year, age_verified_on)
+  values (v_user_id, v_birth_year, v_today)
+  on conflict (id) do update
+     set birth_year      = excluded.birth_year,
+         age_verified_on = excluded.age_verified_on
+  returning * into v_row;
+
+  return v_row;
+end $$;
+
+-- Execute for signed-in users only. `create function` grants EXECUTE to PUBLIC
+-- by default, so the revoke is not decoration — without it `anon` inherits the
+-- right to call a definer function that writes `profiles`. The anon revoke is
+-- redundant after the PUBLIC one and is spelled out so the intent survives
+-- someone re-granting PUBLIC.
+revoke execute on function public.record_age_check(date) from public;
+revoke execute on function public.record_age_check(date) from anon;
+grant execute on function public.record_age_check(date) to authenticated;
+
 -- RLS
 alter table public.profiles enable row level security;
 alter table public.garments enable row level security;
@@ -147,6 +334,75 @@ alter table public.outfit_items enable row level security;
 
 create policy "own profile" on public.profiles
   for all using (id = auth.uid()) with check (id = auth.uid());
+
+-- --- Minimum account age (13+): making the RPC the only path ---------------
+-- Everything in record_age_check() above is decoration if a client can write
+-- the columns itself. It can: Supabase's default privileges hand `anon` and
+-- `authenticated` full DML on new tables in `public`, and the `"own profile"`
+-- policy immediately above is `for all using (id = auth.uid())` — which
+-- authorises `update profiles set age_verified_on = current_date, birth_year =
+-- 1990 where id = auth.uid()` for every signed-in user in the world. RLS
+-- decides *which rows*; it has no vocabulary for *which columns*. SQL
+-- privileges do, so the restriction has to be stated as a grant.
+--
+-- Same mechanism the waitlist uses to freeze `source`/`created_at`
+-- (migrations/004_waitlist.sql), and the same warning: the policy and the
+-- grant are one control split across two statements. Removing these lines
+-- does not loosen anything gradually — it hands the age verdict back to the
+-- client and turns the RPC into an elaborate suggestion.
+--
+-- The re-grants enumerate the columns the app legitimately writes
+-- (src/lib/api/profiles.ts is the only client-side writer). `id` is insertable
+-- but not updatable — a row must be able to name itself, never to re-parent
+-- itself. `created_at` is on neither list. Adding a profiles column later
+-- means adding it here too, or PostgREST returns 42501 for a write RLS was
+-- perfectly happy with.
+revoke insert, update on public.profiles from anon, authenticated;
+grant insert (id, display_name, body_type, height_cm, weight_kg, build)
+  on public.profiles to authenticated;
+grant update (display_name, body_type, height_cm, weight_kg, build)
+  on public.profiles to authenticated;
+revoke insert, update, delete on public.profiles from anon;
+
+-- --- Minimum account age (13+): enforcement, not just recording -------------
+-- The grants above make a verdict unforgeable; they do not stop an account
+-- that *skipped* the gate from using the app, because a hostile client can
+-- ignore the routing in app/_layout.tsx and talk to PostgREST directly.
+-- Without this, "enforced" would mean "enforced against users who use our UI".
+--
+-- Narrow on purpose: an account with no age verdict cannot write its own
+-- profile row. `profiles.build` is the gate into the product — app/_layout.tsx
+-- holds every user in /onboarding until it is set, and the only way to set it
+-- is an UPDATE here — so blocking profile writes blocks onboarding from ever
+-- completing, for a bypassing client exactly as for an honest one, without
+-- touching `garments`, `avatars`, `outfits` or the commerce tables.
+--
+-- Not extended to the content tables, deliberately: every account predating
+-- 006_age_gate.sql is unverified through no fault of its own, and a
+-- restrictive policy on `garments` would mean a returning user opens the app
+-- to an empty wardrobe. Blocking *progress* until the question is answered is
+-- proportionate; making existing data vanish is not.
+--
+-- `as restrictive` ANDs with the permissive policy above instead of ORing, so
+-- it can only subtract. `using` sees the old row and `with check` the new one;
+-- both test the same column because a client cannot change it (the grants
+-- above), so no update can flip the flag and authorise itself. A `security
+-- definer` function bypasses RLS, which is exactly what lets an unverified
+-- user pass the gate that is otherwise blocking them; so does the service
+-- role, so delete-account keeps working. SELECT stays open — a user must be
+-- able to read the column that is blocking them, and the client gate needs it
+-- to route.
+--
+-- A blocked write is not an error: a failed `using` filters rather than
+-- raises, so the statement matches zero rows and reports success with the row
+-- unchanged. It surfaces only because every writer in src/lib/api/profiles.ts
+-- ends `.select().single()`, which PostgREST answers with PGRST116 on zero
+-- rows. Do not drop that `.single()`.
+create policy "profile writes require the age gate" on public.profiles
+  as restrictive
+  for update
+  using (age_verified_on is not null)
+  with check (age_verified_on is not null);
 
 create policy "own garments" on public.garments
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());

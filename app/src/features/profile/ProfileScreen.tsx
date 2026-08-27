@@ -20,14 +20,23 @@ import { useAuthStore } from "../../lib/stores/useAuthStore";
 import type { Build } from "../../lib/database.types";
 import { Wordmark } from "../../components/Wordmark";
 import { colors, radius, spacing, type } from "../../lib/theme";
-
-type Units = "imperial" | "metric";
+import {
+  CM_PER_INCH,
+  KG_PER_LB,
+  bodyMetricsErrorMessage,
+  parseBodyMetrics,
+  rangeHint,
+  safeMetric,
+  safeWidthScale,
+  toDisplayValue,
+  type Units,
+} from "../../lib/bodyMetrics";
 
 /** Format stored metric height for display in the chosen units. */
 function formatHeight(heightCm: number | null, units: Units): string {
   if (!heightCm) return "—";
   if (units === "metric") return `${heightCm} cm`;
-  const totalInches = Math.round(heightCm / 2.54);
+  const totalInches = Math.round(heightCm / CM_PER_INCH);
   return `${Math.floor(totalInches / 12)}'${totalInches % 12}"`;
 }
 
@@ -35,7 +44,7 @@ function formatHeight(heightCm: number | null, units: Units): string {
 function formatWeight(weightKg: number | null, units: Units): string {
   if (!weightKg) return "—";
   if (units === "metric") return `${weightKg} kg`;
-  return `${Math.round(weightKg / 0.453592)} lbs`;
+  return `${Math.round(weightKg / KG_PER_LB)} lbs`;
 }
 
 /** Account info + body measurements (height/weight/build) + sign out. */
@@ -57,7 +66,13 @@ export function ProfileScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const widthScale = buildWidthScale(profile?.height_cm, profile?.weight_kg);
+  // Sanitised on both sides: `safeMetric` keeps a negative stored value from
+  // making buildWidthScale's sqrt(bmi/22) NaN, and `safeWidthScale` catches
+  // anything non-finite that gets past it. A NaN here would reach an SVG
+  // scale() transform and blank the silhouette. See lib/bodyMetrics.ts.
+  const widthScale = safeWidthScale(
+    buildWidthScale(safeMetric(profile?.height_cm), safeMetric(profile?.weight_kg))
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -67,63 +82,37 @@ export function ProfileScreen() {
   );
 
   function startEditing() {
-    if (units === "metric") {
-      setHeightInput(profile?.height_cm ? String(profile.height_cm) : "");
-      setWeightInput(profile?.weight_kg ? String(profile.weight_kg) : "");
-    } else {
-      const totalInches = profile?.height_cm
-        ? Math.round(profile.height_cm / 2.54)
-        : 0;
-      setHeightInput(totalInches ? String(totalInches) : "");
-      setWeightInput(
-        profile?.weight_kg
-          ? String(Math.round(profile.weight_kg / 0.453592))
-          : ""
-      );
-    }
+    const heightCm = safeMetric(profile?.height_cm);
+    const weightKg = safeMetric(profile?.weight_kg);
+    // toDisplayValue clamps into the on-screen range, so the field can never
+    // be pre-filled with a number that save would then reject.
+    setHeightInput(
+      heightCm === null ? "" : String(toDisplayValue("height", heightCm, units))
+    );
+    setWeightInput(
+      weightKg === null ? "" : String(toDisplayValue("weight", weightKg, units))
+    );
     setEditing(true);
-  }
-
-  /** Parse inputs (height in cm or total inches; weight in kg or lbs). Rejects anything but whole-number digits. */
-  function parseMetrics(): { height_cm: number; weight_kg: number } | null {
-    const heightTrimmed = heightInput.trim();
-    const weightTrimmed = weightInput.trim();
-    if (!/^\d+$/.test(heightTrimmed) || !/^\d+$/.test(weightTrimmed)) {
-      return null;
-    }
-    const h = parseInt(heightTrimmed, 10);
-    const w = parseInt(weightTrimmed, 10);
-    if (units === "metric") return { height_cm: h, weight_kg: w };
-    return {
-      height_cm: Math.round(h * 2.54),
-      weight_kg: Math.round(w * 0.453592),
-    };
   }
 
   /** Convert whatever is currently typed into the other unit system so edits survive a unit toggle. */
   function convertInputsToUnits(nextUnits: Units) {
     if (nextUnits === units) return;
 
-    const h = parseInt(heightInput, 10);
-    if (!isNaN(h)) {
-      setHeightInput(
-        String(
-          nextUnits === "metric"
-            ? Math.round(h * 2.54)
-            : Math.round(h / 2.54)
-        )
-      );
+    // Round-trip through metric using the same helpers the save path uses, so
+    // toggling units can never manufacture a value outside the next system's
+    // range. Anything unparseable is left alone for the user to fix.
+    const h = parseInt(heightInput.trim(), 10);
+    if (Number.isFinite(h) && h > 0) {
+      const heightCm =
+        units === "metric" ? h : Math.round(h * CM_PER_INCH);
+      setHeightInput(String(toDisplayValue("height", heightCm, nextUnits)));
     }
 
-    const w = parseInt(weightInput, 10);
-    if (!isNaN(w)) {
-      setWeightInput(
-        String(
-          nextUnits === "metric"
-            ? Math.round(w * 0.453592)
-            : Math.round(w / 0.453592)
-        )
-      );
+    const w = parseInt(weightInput.trim(), 10);
+    if (Number.isFinite(w) && w > 0) {
+      const weightKg = units === "metric" ? w : Math.round(w * KG_PER_LB);
+      setWeightInput(String(toDisplayValue("weight", weightKg, nextUnits)));
     }
   }
 
@@ -137,21 +126,29 @@ export function ProfileScreen() {
   async function saveMetrics(overrides?: { build?: Build }) {
     if (!userId || !profile || saving) return;
 
-    const parsed = editing ? parseMetrics() : null;
-    if (editing && !parsed) {
-      setError("Height and weight must be whole numbers.");
-      return;
+    // While editing, whatever is typed is the source of truth and must pass
+    // validation. When not editing (the build picker saves without opening the
+    // form) the already-stored values are reused as-is.
+    let height_cm: number | null;
+    let weight_kg: number | null;
+
+    if (editing) {
+      const parsed = parseBodyMetrics(heightInput, weightInput, units);
+      if (!parsed.ok) {
+        setError(bodyMetricsErrorMessage(parsed.issues));
+        return;
+      }
+      height_cm = parsed.heightCm;
+      weight_kg = parsed.weightKg;
+    } else {
+      height_cm = safeMetric(profile.height_cm);
+      weight_kg = safeMetric(profile.weight_kg);
     }
-    const height_cm = parsed?.height_cm ?? profile.height_cm;
-    const weight_kg = parsed?.weight_kg ?? profile.weight_kg;
+
     const build = overrides?.build ?? profile.build;
 
     if (!height_cm || !weight_kg || !build) {
-      setError("Please fill in height and weight.");
-      return;
-    }
-    if (height_cm < 90 || height_cm > 250 || weight_kg < 30 || weight_kg > 300) {
-      setError("Those measurements look out of range — please double-check.");
+      setError("Add your height and weight first, then pick a build.");
       return;
     }
 
@@ -299,11 +296,10 @@ export function ProfileScreen() {
                 maxLength={3}
               />
             </View>
-            {units === "imperial" && (
-              <Text style={styles.hintText}>
-                Enter height in total inches (5'8" = 68).
-              </Text>
-            )}
+            {/* Shown for both unit systems, and states the accepted range up
+                front so the limits read as guidance rather than a surprise at
+                save time. */}
+            <Text style={styles.hintText}>{rangeHint(units)}</Text>
             <View style={styles.editButtonsRow}>
               <Pressable
                 style={styles.secondaryButton}
