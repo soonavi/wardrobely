@@ -381,10 +381,18 @@ select selv_verify.expect_error('01','§5 forged ownership','B cannot insert a p
 select selv_verify.expect_error('01','§5 forged ownership','B cannot join the waitlist as A',
   $q$insert into public.waitlist_signups (user_id, email, source)
      values (selv_verify.uid_a(),'attacker@example.com','wardrobe_grid')$q$);
-select selv_verify.expect_error('01','§5 forged ownership','B cannot add an item to A''s outfit',
+-- expect_affected, NOT expect_error, and the distinction is the whole reason
+-- the README documents two failure shapes. This is an INSERT ... SELECT, and
+-- the SELECT half is RLS-filtered: under B's claims it matches neither A's
+-- outfit nor A's garment, so it yields zero rows and the INSERT is a no-op.
+-- A no-op INSERT does not raise. Asserting an error here reports FAIL against
+-- a database whose isolation is working perfectly — which is exactly the false
+-- alarm that teaches people to ignore an audit. Assert what actually proves
+-- the point: nothing was written.
+select selv_verify.expect_affected('01','§5 forged ownership','B cannot add an item to A''s outfit',
   $q$insert into public.outfit_items (outfit_id, garment_id)
      select o.id, g.id from public.outfits o, public.garments g
-      where o.name='[selv-verify] A outfit' and g.name='[selv-verify] A tee' limit 1$q$);
+      where o.name='[selv-verify] A outfit' and g.name='[selv-verify] A tee' limit 1$q$, 0);
 
 -- affiliate_clicks / affiliate_conversions: there is NO client insert policy on
 -- either table, by design. Both of these must be rejected even when B claims
@@ -548,7 +556,14 @@ select selv_verify.expect_count('01','§8 anon','anon sees no wishlist_items', $
 select selv_verify.expect_count('01','§8 anon','anon sees no product_try_ons',$q$select count(*) from public.product_try_ons$q$, 0);
 select selv_verify.expect_count('01','§8 anon','anon sees no affiliate_clicks',$q$select count(*) from public.affiliate_clicks$q$, 0);
 select selv_verify.expect_count('01','§8 anon','anon sees no affiliate_conversions',$q$select count(*) from public.affiliate_conversions$q$, 0);
-select selv_verify.expect_count('01','§8 anon','anon sees no waitlist_signups (no email harvest)',$q$select count(*) from public.waitlist_signups$q$, 0);
+-- expect_error, not expect_count: 004 ends with `revoke all on
+-- public.waitlist_signups from anon`, so anon cannot reach the table at all
+-- and the read raises 42501 instead of returning 0. That is *stronger* than
+-- "sees no rows" — RLS never even gets consulted — but expect_count scores any
+-- error as FAIL, so the original assertion failed against the harder-locked
+-- database it was meant to certify. Matches the anon INSERT check below.
+select selv_verify.expect_error('01','§8 anon','anon cannot read waitlist_signups at all (privileges revoked — stronger than RLS)',
+  $q$select count(*) from public.waitlist_signups$q$);
 select selv_verify.expect_count('01','§8 anon','anon sees no brand_api_keys',  $q$select count(*) from public.brand_api_keys$q$, 0);
 select selv_verify.expect_error('01','§8 anon','anon cannot touch waitlist_signups at all (privileges revoked)',
   $q$insert into public.waitlist_signups (user_id,email,source)

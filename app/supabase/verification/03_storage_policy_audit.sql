@@ -60,10 +60,14 @@ do $$
 declare v_missing text[] := '{}';
 begin
   if not exists (select 1 from storage.buckets where id='avatar-previews') then
-    v_missing := v_missing || 'avatar-previews';
+    -- ::text is load-bearing. Without it the literal is UNKNOWN-typed, Postgres
+    -- resolves the `||` to anyarray||anyarray rather than array_append, and tries
+    -- to parse 'avatar-previews' as an array literal -- failing the whole script
+    -- with 22P02 "malformed array literal" before a single check runs.
+    v_missing := v_missing || 'avatar-previews'::text;
   end if;
   if not exists (select 1 from storage.buckets where id='outfit-thumbnails') then
-    v_missing := v_missing || 'outfit-thumbnails';
+    v_missing := v_missing || 'outfit-thumbnails'::text;
   end if;
 
   if array_length(v_missing,1) is null then
@@ -148,11 +152,29 @@ select selv_verify.note('03','§2 policy shape','UPDATE policy omits WITH CHECK'
 -- the object body is irrelevant to what is under test. The HTTP appendix covers
 -- the byte path.
 
-delete from storage.objects
- where bucket_id='garments'
-   and name in (selv_verify.uid_a()::text||'/selv-verify.jpg',
-                selv_verify.uid_b()::text||'/selv-verify.jpg',
-                selv_verify.uid_a()::text||'/stolen.jpg');
+-- §3 RUNS INSIDE A TRANSACTION AND IS ROLLED BACK. Read this before "fixing"
+-- the missing teardown.
+--
+-- Supabase now ships a `protect_objects_delete` trigger on storage.objects
+-- calling storage.protect_delete(), which rejects ANY direct SQL DELETE with
+--   42501 "Direct deletion from storage tables is not allowed.
+--          Use the Storage API instead."
+-- That fires for `postgres` too. This script originally opened by deleting its
+-- own leftovers and closed by deleting its seeds, so on a current project it
+-- aborted on the very first statement, before a single check ran.
+--
+-- Wrapping the section in begin/rollback fixes it without touching the
+-- platform's trigger and without leaving residue: the seeded rows exist for
+-- the duration of the checks and vanish on rollback, which is strictly better
+-- than a delete-based teardown that could half-succeed. The one check that
+-- has to go is "B cannot DELETE A's object" — protect_delete now refuses that
+-- for everyone, so RLS never gets consulted and the check would prove nothing
+-- about our policies. Deletion authority is covered by the Storage API half in
+-- the appendix instead.
+--
+-- The results rows written in here roll back too, so capture them with the
+-- SELECT at the end of the block before the rollback lands.
+begin;
 
 insert into storage.objects (bucket_id, name)
 values ('garments', selv_verify.uid_a()::text||'/selv-verify.jpg'),
@@ -191,9 +213,10 @@ select selv_verify.expect_error('03','§3 object isolation','B cannot MOVE its o
 select selv_verify.expect_affected('03','§3 object isolation','B cannot rename A''s object',
   $q$update storage.objects set name = selv_verify.uid_b()::text||'/taken.jpg'
       where bucket_id='garments' and name = selv_verify.uid_a()::text||'/selv-verify.jpg'$q$, 0);
-select selv_verify.expect_affected('03','§3 object isolation','B cannot DELETE A''s object',
-  $q$delete from storage.objects
-      where bucket_id='garments' and name = selv_verify.uid_a()::text||'/selv-verify.jpg'$q$, 0);
+-- REMOVED: "B cannot DELETE A's object". storage.protect_delete() refuses every
+-- direct SQL delete regardless of role, so this asserted the platform trigger,
+-- not our RLS. Cross-user delete authority is exercised over the Storage API in
+-- the appendix, which is the path a real client actually takes.
 
 reset role;
 
@@ -290,10 +313,11 @@ end as verdict;
 -- ===========================================================================
 -- §7. Teardown
 -- ===========================================================================
-delete from storage.objects
- where bucket_id='garments'
-   and name in (selv_verify.uid_a()::text||'/selv-verify.jpg',
-                selv_verify.uid_b()::text||'/selv-verify.jpg');
+-- Nothing to delete: §3 ran inside begin/rollback, so its seeded objects were
+-- never committed. A direct DELETE here would fail anyway -- see the note above
+-- §3 on storage.protect_delete(). Capture the §3 results with the SELECT that
+-- closes that block; they roll back with the rest of it.
+rollback;
 
 -- ===========================================================================
 -- APPENDIX — the HTTP half (Storage API)

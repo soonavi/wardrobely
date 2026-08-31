@@ -193,6 +193,19 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
   useEffect(() => {
     loadAvatar();
     return () => {
+      // Bumping the generation counter is what cancels an in-flight
+      // loadAvatar(): it re-reads loadIdRef.current after its await and bails
+      // when the value moved (see the guard above). Mutating the LIVE ref on
+      // the way out is therefore the entire point of this cleanup.
+      //
+      // react-hooks/exhaustive-deps warns here because a ref read in cleanup
+      // is usually a stale-DOM-node bug, and its stock remedy — copy
+      // loadIdRef.current into a local inside the effect and use the copy —
+      // would increment a snapshot instead of the ref the running load is
+      // watching, silently disabling the cancellation. The warning does not
+      // apply to a generation counter, so it is suppressed rather than
+      // "fixed".
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       loadIdRef.current++;
     };
   }, [loadAvatar]);
