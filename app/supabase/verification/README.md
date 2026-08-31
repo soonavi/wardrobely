@@ -122,6 +122,14 @@ select verdict, count(*) from selv_verify.results group by verdict;
 
 **A FAIL count of 0 is the bar.** Anything else, fix before submission.
 
+## Run log
+
+`RESULTS_2026-08-27.md` records the first execution of these scripts against a
+live project (134 PASS, 0 unexplained FAIL), the two mis-shaped assertions it
+found in `01`, and the two bugs that stopped `03` running at all. Read its
+**Scope limits** section before treating the checklist items as discharged: the
+HTTP appendices and `04`'s Phase 2 still need a real access token.
+
 ## Teardown
 
 Each script's final section drops the `selv_verify` schema and removes its seed
