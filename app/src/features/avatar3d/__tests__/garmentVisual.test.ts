@@ -48,6 +48,17 @@ function garment(overrides: Partial<GarmentRow> = {}): GarmentRow {
     texture_path: null,
     source: "upload",
     processing_status: "ready",
+    // Migration 008. Null here rather than a sample measurement: the default
+    // fixture is an unmeasured garment, which is what most of a real wardrobe
+    // looks like, and a test that wants measurements should say so explicitly.
+    measurement_source: null,
+    chest_cm: null,
+    waist_cm: null,
+    hip_cm: null,
+    length_cm: null,
+    shoulder_cm: null,
+    sleeve_cm: null,
+    inseam_cm: null,
     product_id: null,
     image_url: null,
     ...overrides,
