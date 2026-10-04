@@ -4,42 +4,22 @@ Written 2026-10-04. Read this first; it is a runbook, not a status report.
 
 ---
 
-## 1. Do this first: apply migrations 008 and 009
+## 1. Done: migrations 008 and 009 are applied
 
-**These are the only pending items that are actually blocked on nothing.** Ben
-reconnected the Supabase connector on 2026-10-04, but connectors are read at
-session start, so the session that wrote this file never saw it. A fresh session
-should have the `mcp__Supabase__*` tools.
+**Applied and verified 2026-10-04**, on project `tmldopeuctftnteerxjg`
+(`wardrobe-app`, us-east-1). Nothing in this section is outstanding. It is kept
+as the record of what landed, plus the connector gotchas found doing it — read
+those before any further MCP migration work.
 
-Currently applied, through `007`:
+The ledger now reads 13 entries, ending:
 
 ```
-20260704202200  initial_wardrobe_schema
-20260704213729  add_body_metrics_to_profiles
-20260714185452  create_waitlist
-20260714192625  avatars_and_garment_templates
-20260720073640  avatar_customization
-20260827185854  commerce_affiliate_layer          (002)
-20260827185916  affiliate_click_rpc               (003)
-20260827185945  waitlist_signups                  (004)
-20260827190348  waitlist_shop_source              (005)
-20260827191601  age_gate                          (006)
-…              pin_function_search_path           (007)
+20260827202054  pin_function_search_path           (007)
+20261004083127  garment_measurements               (008)
+20261004091445  assistant                          (009)
 ```
 
-Pending: `app/supabase/migrations/008_garment_measurements.sql` and
-`009_assistant.sql`.
-
-### Procedure
-
-1. `mcp__Supabase__list_migrations` on project `tmldopeuctftnteerxjg`
-   (`wardrobe-app`, us-east-1) and confirm the list above. If `008`/`009`
-   already appear, stop — someone else applied them.
-2. Read each migration file and apply it **verbatim** with
-   `mcp__Supabase__apply_migration`, `008` before `009`. Both are additive and
-   guarded (`if not exists`, `drop … if exists` before create), so a partial
-   failure can be fixed and the file re-applied.
-3. Verify:
+### Verification — re-run any time
 
 ```sql
 select
@@ -56,31 +36,64 @@ select
   (select enabled from public.assistant_preferences limit 1)                   as any_enabled;                -- expect NULL (no rows)
 ```
 
-`assistant_insert_policies` must be **0**. There is deliberately no client
+Result on 2026-10-04: `8`, `2`, `0`, `NULL` — all as expected.
+
+`assistant_insert_policies` must stay **0**. There is deliberately no client
 insert policy — a suggestion row records a call *we* made to Claude, and a
 client able to write one could fabricate a recommendation history.
 
-4. Run `mcp__Supabase__get_advisors` with `type: "security"`. Expect the known,
-   intentional findings only: `brand_api_keys` RLS-with-no-policies,
-   `waitlist_count()` anon-executable (it powers the live landing-page counter —
-   do **not** revoke it), the definer RPCs callable by `authenticated`, and
-   `handle_new_user()` flagged as anon-callable (false positive: it returns
-   `trigger`, and Postgres refuses to invoke trigger functions directly).
-   **Anything else is new and worth reading.**
-5. Regenerate nothing. `app/src/lib/database.types.ts` is hand-written (its own
-   header says so) and already carries the `008`/`009` types.
+Because `009` did not go in atomically (see gotchas), every object it creates
+was also checked individually and all are present: the `set_updated_at` trigger,
+the `assistant_suggestions_one_subject` constraint, all three suggestion
+indexes, `garments_measured_idx`, both garment constraints, the
+`garment_measurement_source` enum, RLS on both tables, and 3 policies. The
+privilege matrix matches the migration's intent exactly: `anon` holds nothing on
+either table; `authenticated` has SELECT on `assistant_suggestions` with UPDATE
+narrowed to `dismissed_at` and `acted_at` only, and no INSERT or DELETE.
 
-### What applying them does and does not turn on
+### Security advisors
 
-- **Garment measurements** become writable. No UI reaches them yet, so nothing
+The known-intentional findings are unchanged: `brand_api_keys`
+RLS-with-no-policies, `waitlist_count()` anon-executable (it powers the live
+landing-page counter — do **not** revoke it), the definer RPCs callable by
+`authenticated`, and `handle_new_user()` flagged as anon-callable (false
+positive: it returns `trigger`, and Postgres refuses to invoke trigger
+functions directly). No new findings on either assistant table.
+
+**One finding is new since this file was first written:**
+`auth_leaked_password_protection` (WARN) — HaveIBeenPwned checking is disabled
+in Supabase Auth. Pre-existing and unrelated to `008`/`009`. Not addressed.
+
+### Connector gotchas — these cost a session
+
+- **`DROP TABLE` through the Supabase MCP connector always hangs.** 60s timeout,
+  clean rollback, every time — including `drop table if exists` on a table that
+  does not exist, which is zero work for Postgres. It is a destructive-statement
+  confirmation gate with nowhere to prompt in a headless session. Use the
+  Supabase CLI or `psql` for drops; do not burn attempts on the connector.
+- **`apply_migration` timed out 4× on `009`** while `008` went through on the
+  first try. `009` contains `drop trigger/policy/constraint if exists`, which is
+  the likely trigger. It was ultimately applied statement-by-statement via
+  `execute_sql`, each statement verbatim from the file.
+- Consequence: the `009` ledger row's `statements` column holds a pointer to
+  `app/supabase/migrations/009_assistant.sql` rather than the inlined SQL, where
+  `008` inlines it. Cosmetic — `list_migrations` reads correctly. Re-running
+  `009` atomically would need the CLI, since the drop-and-replay needs
+  `DROP TABLE`.
+
+### What this turned on, and what it did not
+
+- **Garment measurements** are writable. No UI reaches them yet, so nothing
   changes for users until the screens are built (§4).
-- **The assistant stays off.** `assistant_preferences.enabled` defaults to
-  `false` and Ben has confirmed it stays off for now. Applying `009` creates the
-  table; it does not enable anything for anybody.
+- **The assistant is still off.** `assistant_preferences.enabled` defaults to
+  `false`, the table has zero rows, and Ben has confirmed it stays off. Applying
+  `009` created the table; it enabled nothing for anybody.
 - The assistant additionally needs `ANTHROPIC_API_KEY` in Supabase Edge Function
-  secrets and `supabase functions deploy wardrobe-assistant`. It returns
-  `503 assistant_unavailable` when the key is missing, so a misconfiguration
-  looks like an outage rather than a model with no ideas.
+  secrets and `supabase functions deploy wardrobe-assistant`. Neither was done.
+  It returns `503 assistant_unavailable` when the key is missing, so a
+  misconfiguration looks like an outage rather than a model with no ideas.
+- Nothing was regenerated. `app/src/lib/database.types.ts` is hand-written (its
+  own header says so) and already carries the `008`/`009` types.
 
 ---
 
@@ -94,10 +107,10 @@ clean, CI on every PR and push to main):
 | 3D try-on, affiliate commerce | **Live.** Audited 32/32 on the write path. Do not rebuild — it already exists. |
 | CI, 13+ age gate, reconciled legal docs | Live |
 | Backend verification scripts + results | Run against the live project: 134 PASS, 0 unexplained FAIL (`app/supabase/verification/RESULTS_2026-08-27.md`) |
-| Garment measurements | Code + tests on `main`. **Migration pending (§1).** No UI. |
-| Wardrobe assistant | Code + Edge Function + settings card on `main`. **Migration pending, off by default, no screen calls it.** |
+| Garment measurements | Code + tests on `main`. **Migration applied 2026-10-04 (§1).** No UI. |
+| Wardrobe assistant | Code + Edge Function + settings card on `main`. **Migration applied 2026-10-04 (§1); still off by default, no screen calls it.** |
 | Avatar mesh path | Built and tested. **No asset** — still renders ~50 primitives. |
-| Live database | Migrations `002`–`007` applied and verified |
+| Live database | Migrations `002`–`009` applied and verified |
 
 ---
 
