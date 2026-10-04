@@ -29,3 +29,7 @@
 # --- OS / editor -----------------------------------------------------------
 .DS_Store
 Thumbs.db
+
+# Python bytecode from tools/avatar-export.
+__pycache__/
+*.pyc
