@@ -15,6 +15,7 @@ import BuildPicker from "../avatar/BuildPicker";
 import { buildWidthScale } from "../avatar/avatars";
 import { deleteAccount } from "../../lib/api/account";
 import { signOut } from "../../lib/api/auth";
+import { AssistantSettingsCard } from "../assistant/AssistantSettingsCard";
 import { updateBodyMetrics } from "../../lib/api/profiles";
 import { useAuthStore } from "../../lib/stores/useAuthStore";
 import type { Build } from "../../lib/database.types";
@@ -416,6 +417,17 @@ export function ProfileScreen() {
         and lives in src/features/avatar3d/gltf/, unrouted, waiting for a
         real rig. There is nothing to deep-link to.
       */}
+
+      {/*
+        The assistant's consent lives here rather than in a first-run modal.
+        `009_assistant.sql` ships it off by default, so a user who never opens
+        this screen never shares anything — which means this card is the only
+        place the decision is made, and it carries the full disclosure rather
+        than a bare switch.
+      */}
+      {session?.user?.id ? (
+        <AssistantSettingsCard userId={session.user.id} />
+      ) : null}
 
       <Pressable
         style={[styles.signOutButton, signingOut && styles.buttonDisabled]}

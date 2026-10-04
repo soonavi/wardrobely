@@ -17,6 +17,17 @@ export type BodyType =
 /** General build selected during onboarding (profiles.build). */
 export type Build = "slim" | "average" | "athletic" | "curvy" | "broad";
 
+/**
+ * Where a garment's measurements came from (migration 008).
+ *
+ * Read this before rendering any measurement. `estimated` values are our
+ * derivation from category + the wearer's body metrics, not something anyone
+ * measured, and presenting one unqualified is the specific failure the column
+ * exists to prevent. `lib/measurements/garmentMeasurements.ts` owns the
+ * rendering rule.
+ */
+export type GarmentMeasurementSource = "user" | "estimated" | "brand";
+
 export type GarmentCategory =
   | "top"
   | "bottom"
@@ -80,6 +91,48 @@ export type GarmentSource = "upload" | "catalog";
  */
 export type GarmentProcessingStatus = "pending" | "processing" | "ready" | "failed";
 
+/** Assistant frequency preference (migration 009). Not a privacy control —
+ * every level sends the same data. */
+export type SuggestionFrequency = "minimal" | "balanced" | "frequent";
+
+export type AssistantPreferencesRow = {
+  user_id: string;
+  /**
+   * Whether the wardrobe assistant may send this user's wardrobe to Claude.
+   * Defaults FALSE in the database: the published privacy policy does not yet
+   * name Anthropic as a processor. See 009_assistant.sql.
+   */
+  enabled: boolean;
+  /** When the user was last asked. Distinct from `enabled` so a decline is not
+   * mistaken for never having been prompted. */
+  prompted_at: string | null;
+  suggestion_frequency: SuggestionFrequency;
+  created_at: string;
+  updated_at: string;
+};
+
+/** One item the assistant suggested, inside `AssistantSuggestionRow.suggestions`. */
+export type AssistantSuggestionItem = {
+  garment_id: string;
+  reason: string;
+};
+
+export type AssistantSuggestionRow = {
+  id: string;
+  user_id: string;
+  /** Exactly one of these is set — enforced by
+   * `assistant_suggestions_one_subject` in 009. */
+  subject_garment_id: string | null;
+  subject_product_id: string | null;
+  suggestions: AssistantSuggestionItem[];
+  /** Which model produced it, so a future model's output stays separable from
+   * this one's in any quality comparison. */
+  model: string;
+  created_at: string;
+  dismissed_at: string | null;
+  acted_at: string | null;
+};
+
 export type GarmentRow = {
   id: string;
   user_id: string;
@@ -100,6 +153,24 @@ export type GarmentRow = {
   created_at: string;
   /** FK -> garment_templates.id; null for garments not yet matched to a template. */
   template_id: string | null;
+  /**
+   * Measurement provenance (migration 008). NULL means this garment has no
+   * measurements at all; the DB's
+   * `garments_measurement_source_consistent` check guarantees that source and
+   * values are either both present or both absent, so a non-null source means
+   * at least one axis below is set.
+   */
+  measurement_source: GarmentMeasurementSource | null;
+  /** Garment measurements in whole centimetres. Which axes apply depends on
+   * `category` — see AXES_BY_CATEGORY in lib/measurements/garmentMeasurements.ts.
+   * An axis that does not apply to the category is always null. */
+  chest_cm: number | null;
+  waist_cm: number | null;
+  hip_cm: number | null;
+  length_cm: number | null;
+  shoulder_cm: number | null;
+  sleeve_cm: number | null;
+  inseam_cm: number | null;
   /** Storage path of the processed (background-removed / UV-projected) texture, once ready. */
   texture_path: string | null;
   source: GarmentSource;
@@ -677,6 +748,39 @@ export type Database = {
          * then be refused by the database.
          */
         Update: Pick<WaitlistSignupRow, "email">;
+        Relationships: [];
+      };
+      // --- Wardrobe assistant (migration 009) -------------------------------
+      assistant_preferences: {
+        Row: AssistantPreferencesRow;
+        /**
+         * Everything but `user_id` carries a database default, so a caller can
+         * create the row by writing only the field the user just changed. That
+         * is why the client API upserts rather than requiring onboarding to
+         * seed a row for every account.
+         */
+        Insert: Partial<AssistantPreferencesRow> & { user_id: string };
+        Update: Partial<AssistantPreferencesRow>;
+        Relationships: [];
+      };
+      assistant_suggestions: {
+        Row: AssistantSuggestionRow;
+        /**
+         * `never` on purpose. There is no client INSERT policy on this table —
+         * a suggestion row records a call *we* made to Claude, and a client
+         * able to write one could fabricate a recommendation history. The
+         * `wardrobe-assistant` Edge Function writes them with the service role.
+         * Typing this as `never` makes the refusal a compile error rather than
+         * a runtime RLS violation.
+         */
+        Insert: never;
+        /**
+         * Narrower than `Partial<Row>` for the same reason as
+         * `waitlist_signups`: 009 revokes UPDATE and re-grants it on these two
+         * columns alone. Widening this would typecheck and then be refused by
+         * the database.
+         */
+        Update: Partial<Pick<AssistantSuggestionRow, "dismissed_at" | "acted_at">>;
         Relationships: [];
       };
     };
