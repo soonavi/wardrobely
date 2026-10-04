@@ -65,10 +65,18 @@ CONTRACT_PATH = (
     / "app/src/features/avatar3d/humanBase/morphContract.json"
 )
 
-# Topology names that may not be shipped commercially. Substring-matched against
-# whatever the loaded model reports, so "smplx", "SMPL-X" and "smpl_x" are all
-# caught.
-FORBIDDEN_TOPOLOGY_SUBSTRINGS = ("smplx", "smpl-x", "smpl_x")
+# Topology names that may not be shipped commercially.
+#
+# Normalized to lowercase alphanumerics before matching, so "SMPL-X", "smpl_x"
+# and "smplx" all collapse to "smplx" and a single entry catches them.
+#
+# BARE "smpl" IS LISTED SEPARATELY AND DELIBERATELY. Anny offers `smplx`,
+# `smpl` AND `soma` retopologies. An earlier version of this list held only the
+# smplx spellings, which meant `topology="smpl"` sailed straight through the
+# guard — SMPL is the same Max Planck lineage as SMPL-X, patented and licensed
+# for research, so that was the exact hole this function exists to close.
+# `soma` is NOT here: it is adapted from NVlabs/SOMA-X under Apache 2.0.
+FORBIDDEN_TOPOLOGY_SUBSTRINGS = ("smplx", "smpl")
 
 # Mirrors inspectHumanBase.ts. Warnings, never fatal — a heavy mesh is a
 # measurement problem and the only honest verdict comes from a real device.
@@ -175,7 +183,16 @@ def self_check(contract: dict[str, Any]) -> list[str]:
 
 
 def assert_topology_is_licensed(topology: str) -> None:
-    lowered = topology.lower().replace(" ", "")
+    """
+    Refuse a topology Selv may not ship.
+
+    Raises rather than warning. A warning on a build step gets scrolled past,
+    and the cost of shipping the wrong topology is not a bug report — it is
+    discovering, after users have saved avatars against a mesh layout, that the
+    layout was never licensed for a commercial app.
+    """
+    # Strip separators so smpl-x / smpl_x / SMPL X all normalize to "smplx".
+    lowered = "".join(c for c in topology.lower() if c.isalnum())
     for forbidden in FORBIDDEN_TOPOLOGY_SUBSTRINGS:
         if forbidden in lowered:
             raise SystemExit(

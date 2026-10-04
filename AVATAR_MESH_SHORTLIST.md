@@ -41,27 +41,60 @@ and calibrated against WHO population statistics.
 | 4 — skeleton | **104-bone "anny" rig** (default, compact — body/hand/head articulation, facial and zero-weight bones pruned), or the full 163-bone MakeHuman rig. |
 | 6 — budget | **13,718 vertices / 13,710 quad faces** (~27k triangles triangulated). Comfortably inside the 50k soft budget. |
 
-### ⚠️ The licensing is MIXED. This is the thing to get right.
+### ⚠️ The licensing is MIXED — verified against the actual files
 
-The repository licenses code and assets separately, and one component is
-**non-commercial**:
+**Updated 2026-10-04**, after reading `LICENSE`, `src/anny/data/mpfb2/LICENSE.md`
+and the README's licensing section directly. Two things changed from the
+first-pass research, one reassuring and one not.
 
-| Component | License |
+Quoting the README verbatim:
+
+| Component | Licence (verbatim) |
 |---|---|
-| Python/PyTorch code | Apache 2.0 |
-| **MakeHuman assets (`data/mpfb2`) — the mesh and blendshapes** | **CC0 1.0** |
-| Facial actions (Face Units) | CC0 1.0 |
-| SOMA topology | Apache 2.0 |
-| **SMPL-X topology** | **NON-COMMERCIAL USE ONLY** |
+| Code | "licensed under the Apache License, Version 2.0" |
+| **`data/mpfb2` — the mesh and blendshapes we ship** | "MakeHuman assets adapted from MPFB2 that are licensed under the **CC0 1.0 Universal** License" |
+| `data/faceunits01` | "Face Units asset pack by Mika Suominen, licensed under the CC0 1.0 Universal License" |
+| `data/soma` | "a 'soma' topology adapted from SOMA-X which is licenced under the Apache 2.0 license" |
+| **`smplx`** | "A 'smplx' topology **can be downloaded** for **non-commercial use only**" |
 
-So Anny is commercially usable **only on the anny/MakeHuman topology**. The
-SMPL-X interoperability path is off-limits for Selv and must not be used —
-which matters because it would be expensive to discover after avatars are
-saved against a topology's blendshape names.
+`src/anny/data/mpfb2/LICENSE.md` is confirmed CC0 1.0 Universal: no attribution
+requirement, commercial use unrestricted, all copyright and related rights
+waived. That is the most permissive licence available and it covers exactly the
+part Selv ships.
 
-The parts we actually need — base mesh and body blendshapes — are **CC0**, the
-most permissive license available: no attribution, no restriction, commercial
-fine.
+**Better than first thought: the SMPL-X assets are not in the repository.** They
+live behind a separate download at
+`download.europe.naverlabs.com/humans/Anny/noncommercial.zip`. So the earlier
+characterisation — that a topology flag could silently move you from CC0 to
+non-commercial — was wrong: the assets have to be fetched, from a URL named
+`noncommercial.zip`.
+
+**Worse than first thought, and this is the real hazard.** The README's install
+instructions carry this line:
+
+> `pip install anny # Minimal install.`
+> `# Note that the free install may download non-commercial only assets when needed.`
+
+So the boundary is *not* a deliberate human decision to go and fetch a zip. The
+package may pull non-commercial assets on demand. That is the thing to pin down
+before shipping: whether a build that only ever requests the `anny` topology can
+end up with non-commercial data on disk or in the bundle.
+
+**Also: there are two SMPL retopologies, not one.** The README lists `smplx`,
+`smpl` and `soma`. `soma` is Apache 2.0 and fine; `smpl` is the same Max Planck
+lineage as `smplx`. `assert_topology_is_licensed()` in the export pipeline
+blocks both — an earlier version of that guard listed only the `smplx`
+spellings, so `topology="smpl"` passed straight through it, which was precisely
+the hole it exists to close.
+
+**What this means in practice:** stay on the default `anny` topology (or
+`anny-quads` / `anny-full` / `makehuman`, all MakeHuman-derived) and the licence
+position is CC0 for the mesh and Apache 2.0 for the code. Never request `smpl`
+or `smplx`, and verify no non-commercial assets arrived at install time.
+
+A useful incidental: the default `anny` topology is already **triangulated**
+("triangular faces", "unattached vertices removed"), so no quad conversion is
+needed unless you deliberately pick `anny-quads` or `makehuman`.
 
 ### The work it needs
 
