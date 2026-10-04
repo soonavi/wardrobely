@@ -327,78 +327,265 @@ export function measurementsToShapeParams(m: Measurements): ShapeParams {
 // ---------------------------------------------------------------------------
 
 /**
- * Morph target key candidates per shape axis, tried in priority order.
- * Matching is case-insensitive and tolerant of separators (a key is
- * normalized by lowercasing and stripping everything but [a-z0-9] before
- * comparison), because rig authors are wildly inconsistent about naming —
- * Mixamo, MakeHuman, Anny, and hand-authored rigs all use different words
- * for the same concept (e.g. "Bust", "Chest_Width", "chestSize").
+ * Morph target key candidates per shape axis, split by what the name implies
+ * about the blendshape's *polarity*. Matching is case-insensitive and tolerant
+ * of separators (a key is normalized by lowercasing and stripping everything
+ * but [a-z0-9] before comparison), because rig authors are wildly inconsistent
+ * about naming — Mixamo, MakeHuman, Anny, and hand-authored rigs all use
+ * different words for the same concept (e.g. "Bust", "Chest_Width",
+ * "chestSize").
+ *
+ * WHY POLARITY MATTERS, AND WHY THIS IS SPLIT THREE WAYS
+ * -----------------------------------------------------
+ * There are two incompatible authoring conventions in the wild, and reading a
+ * rig with the wrong one produces a body that cannot be posed neutrally:
+ *
+ *   * **Bidirectional slider** — one morph spanning both extremes, rest at
+ *     influence 0.5 (e.g. "Weight" where 0 = thinnest, 1 = heaviest). These
+ *     names are listed under `neutral`.
+ *   * **Opposing pair / single direction** — morphs named for one direction,
+ *     each 0 = off, 1 = full (e.g. separate "Thin" and "Heavy"). These are
+ *     listed under `negative` / `positive`.
+ *
+ * Driving a directional morph as though it were bidirectional sets it to 0.5
+ * at rest, which renders a permanently half-heavy avatar that no input can
+ * neutralize. That is the bug this split fixes; `pickAxisBinding` below is
+ * where the convention is inferred.
+ *
+ * PRECEDENCE IS `neutral` FIRST, AND THAT IS NOT ARBITRARY. An undriven morph
+ * sits at its default influence of 0 — which is *neutral* for a directional
+ * morph but a hard *extreme* for a bidirectional one. So when a rig offers
+ * both, driving the bidirectional one and leaving the pair at 0 is safe, while
+ * the reverse leaves a slider pinned at its thinnest extreme. Prefer the
+ * option whose failure mode is invisible.
  */
-const MORPH_TARGET_NAME_CANDIDATES: Record<keyof ShapeParams, string[]> = {
-  height: ["height", "stature", "tall"],
-  volume: ["volume", "weight", "mass", "bmi", "bodyfat", "fat", "heavy", "chubby"],
-  chest: ["chest", "bust", "pecs"],
-  hip: ["hip", "hips", "glute", "buttock"],
+interface AxisCandidates {
+  /** Bidirectional slider names — rest at influence 0.5. */
+  neutral: string[];
+  /** Names implying "more of this axis" — rest at influence 0. */
+  positive: string[];
+  /** Names implying "less of this axis" — rest at influence 0. */
+  negative: string[];
+}
+
+const MORPH_TARGET_NAME_CANDIDATES: Record<keyof ShapeParams, AxisCandidates> = {
+  height: {
+    neutral: ["height", "stature"],
+    positive: ["tall"],
+    negative: ["short"],
+  },
+  volume: {
+    // "bodyfat" precedes "fat" across the two lists deliberately: matching is
+    // name-contains-candidate, so a morph called "BodyFat" has to be claimed
+    // by the neutral list before the positive list's "fat" can reach it, while
+    // a morph called plainly "Fat" still falls through to positive.
+    neutral: ["volume", "weight", "mass", "bmi", "bodyfat"],
+    positive: ["heavy", "chubby", "fat", "overweight", "obese"],
+    negative: ["thin", "slim", "skinny", "lean", "underweight"],
+  },
+  chest: {
+    neutral: ["chest", "bust", "pecs"],
+    positive: ["chestlarge", "bustlarge"],
+    negative: ["chestsmall", "bustsmall", "flatchest"],
+  },
+  hip: {
+    neutral: ["hip", "hips", "glute", "buttock"],
+    positive: ["hipwide", "hipslarge"],
+    negative: ["hipnarrow", "hipssmall"],
+  },
 };
 
 function normalizeMorphName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-/** Finds the first morph target key in `dict` matching any candidate for one axis, trying candidates in priority order. */
-function findMorphTarget(
+type Polarity = "neutral" | "positive" | "negative";
+
+/**
+ * Classify one morph key for one axis: LONGEST MATCHING CANDIDATE WINS.
+ *
+ * WHY LONGEST AND NOT LIST ORDER. Matching is name-contains-candidate, so the
+ * lists overlap by construction — "chestsmall" contains "chest", "bodyfat"
+ * contains "fat", "overweight" contains "weight". Checking the lists in a
+ * fixed order gets one family right and the other wrong, and which family
+ * breaks depends only on which order you picked:
+ *
+ *   neutral first  → "ChestSmall" reads as a generic chest control and is
+ *                    driven to 0.5 at rest. The opposing-pair bug, back again,
+ *                    for chest and hip.
+ *   poles first    → "BodyFat" reads as the positive pole "fat" and rests at
+ *                    0 instead of 0.5, breaking a genuine bidirectional rig.
+ *
+ * Longest-match resolves both with one rule, because the longest candidate a
+ * name matches is the most specific thing said about it: "chestsmall" (10)
+ * beats "chest" (5); "bodyfat" (7) beats "fat" (3); "overweight" (10) beats
+ * "weight" (6). No list ordering to maintain, and adding a candidate cannot
+ * silently re-classify an existing one unless it is genuinely more specific.
+ */
+function classifyKey(
+  normalized: string,
+  candidates: AxisCandidates,
+): { polarity: Polarity; length: number } | undefined {
+  let best: { polarity: Polarity; length: number } | undefined;
+
+  const consider = (polarity: Polarity, list: string[]) => {
+    for (const candidate of list) {
+      if (!normalized.includes(candidate)) continue;
+      if (!best || candidate.length > best.length) {
+        best = { polarity, length: candidate.length };
+      }
+    }
+  };
+
+  consider("neutral", candidates.neutral);
+  consider("positive", candidates.positive);
+  consider("negative", candidates.negative);
+
+  return best;
+}
+
+/**
+ * Find the morph key in `dict` that best represents each polarity of one axis.
+ *
+ * Each key is classified once (see `classifyKey`), so a key can fill at most
+ * one polarity — which is what makes "both poles present" a trustworthy signal
+ * for the pair path rather than the same key counted twice. Where several keys
+ * claim the same polarity the more specific match wins; ties keep the first
+ * encountered, an arbitrary but stable choice over an unusually-named rig.
+ */
+function matchPolarity(
   dict: { [name: string]: number },
-  candidates: string[]
+  candidates: AxisCandidates,
+  polarity: Polarity,
 ): { key: string; index: number } | undefined {
-  const keys = Object.keys(dict);
-  for (const candidate of candidates) {
-    const key = keys.find((k) => normalizeMorphName(k).includes(candidate));
-    if (key !== undefined) {
-      return { key, index: dict[key] };
+  let found: { key: string; index: number; length: number } | undefined;
+
+  for (const key of Object.keys(dict)) {
+    const match = classifyKey(normalizeMorphName(key), candidates);
+    if (!match || match.polarity !== polarity) continue;
+    if (!found || match.length > found.length) {
+      found = { key, index: dict[key], length: match.length };
     }
   }
+
+  return found ? { key: found.key, index: found.index } : undefined;
+}
+
+/**
+ * How one axis is expressed by the rig currently loaded, and which morph keys
+ * carry it. Reported out through `ApplyShapeResult.bindings` so a diagnostic
+ * screen can show what was inferred — the inference is a heuristic over
+ * author-chosen names, and a heuristic nobody can see is a heuristic nobody
+ * can correct.
+ */
+export interface MorphAxisBinding {
+  axis: keyof ShapeParams;
+  /**
+   * `bidirectional` — one slider, rest at 0.5.
+   * `pair` — two opposing directional morphs, both rest at 0.
+   * `unipolar` — one directional morph; the opposite direction is unavailable,
+   *   so that half of the axis simply cannot be expressed by this rig.
+   */
+  mode: "bidirectional" | "pair" | "unipolar";
+  /** Morph keys driven. For `pair`, ordered [negative, positive]. */
+  keys: string[];
+}
+
+/** Which morph key, if any, each polarity list claims for one axis. */
+function matchPolarities(
+  dict: { [name: string]: number },
+  candidates: AxisCandidates,
+): {
+  neutral?: { key: string; index: number };
+  positive?: { key: string; index: number };
+  negative?: { key: string; index: number };
+} {
+  return {
+    neutral: matchPolarity(dict, candidates, "neutral"),
+    positive: matchPolarity(dict, candidates, "positive"),
+    negative: matchPolarity(dict, candidates, "negative"),
+  };
+}
+
+/**
+ * Decide how to drive one axis on one mesh, and do it.
+ *
+ * Returns the binding it settled on, or `undefined` when the rig expresses
+ * nothing for this axis — which is a legitimate outcome, not a failure: a rig
+ * may simply have no hip blendshape, and the honest response is to leave that
+ * axis alone rather than force it onto an unrelated morph.
+ */
+function driveAxis(
+  dict: { [name: string]: number },
+  influences: number[],
+  axis: keyof ShapeParams,
+  value: number,
+): MorphAxisBinding | undefined {
+  const { neutral, positive, negative } = matchPolarities(
+    dict,
+    MORPH_TARGET_NAME_CANDIDATES[axis],
+  );
+
+  // Bidirectional first — see the precedence note on the candidate table.
+  if (neutral) {
+    influences[neutral.index] = (value + 1) / 2;
+    return { axis, mode: "bidirectional", keys: [neutral.key] };
+  }
+
+  // Opposing pair: each pole carries its own half of the range and both sit at
+  // 0 when the axis is neutral, so the rest pose is genuinely rest.
+  if (negative && positive) {
+    influences[negative.index] = Math.max(0, -value);
+    influences[positive.index] = Math.max(0, value);
+    return { axis, mode: "pair", keys: [negative.key, positive.key] };
+  }
+
+  // One direction only. Drive it over its own half and leave it at 0 for the
+  // other — deliberately NOT (value+1)/2, which is the bug: a morph named for
+  // a direction conventionally means 0 = off, so a 0.5 rest pose would show a
+  // permanently half-applied body.
+  const single = positive ?? negative;
+  if (single) {
+    const direction = positive ? 1 : -1;
+    influences[single.index] = Math.max(0, value * direction);
+    return { axis, mode: "unipolar", keys: [single.key] };
+  }
+
   return undefined;
 }
 
 /**
- * Sets morphTargetInfluences on every mesh that has a matching morph
- * target, for every ShapeParams axis. Returns the matched morph target
- * key names (for debugging/UI, e.g. "shape driven by real morph targets:
- * Height, Chest_Width").
+ * Sets morphTargetInfluences on every mesh that has a matching morph target,
+ * for every ShapeParams axis.
  *
- * Mapping assumption: this assumes each matched morph target is a single,
- * one-directional blendshape authored from one extreme (influence 0) to
- * the other (influence 1), with 0.5 as the rest-pose/population-average
- * midpoint — a common "slider" blendshape authoring convention. A
- * ShapeParams value of -1..1 maps linearly onto that 0..1 influence range.
- * A rig authored instead as two opposite one-directional morphs (e.g.
- * separate "Thin"/"Heavy" targets) isn't handled here and would need a
- * small extension to this function — a reasonable Day 3+ refinement once
- * a real rigged GLB's actual morph-authoring convention is known.
- *
- * Note: if the same morph key happens to match more than one axis'
- * candidate list (an unusually-named rig), the later axis in iteration
- * order (height, volume, chest, hip) wins — an accepted simplification
- * for what is currently an unexercised fallback seam (see file header).
+ * Note: if the same morph key happens to match more than one axis' candidate
+ * list (an unusually-named rig), the later axis in iteration order (height,
+ * volume, chest, hip) wins — an accepted simplification, now visible in the
+ * returned bindings rather than silent.
  */
-function applyMorphTargets(meshes: Mesh[], s: ShapeParams): string[] {
+function applyMorphTargets(
+  meshes: Mesh[],
+  s: ShapeParams,
+): { matched: string[]; bindings: MorphAxisBinding[] } {
   const matched: string[] = [];
+  const bindings: MorphAxisBinding[] = [];
 
   for (const mesh of meshes) {
     const dict = mesh.morphTargetDictionary;
     const influences = mesh.morphTargetInfluences;
     if (!dict || !influences) continue;
 
-    (Object.keys(MORPH_TARGET_NAME_CANDIDATES) as (keyof ShapeParams)[]).forEach((axis) => {
-      const found = findMorphTarget(dict, MORPH_TARGET_NAME_CANDIDATES[axis]);
-      if (!found) return;
-
-      influences[found.index] = (s[axis] + 1) / 2;
-      matched.push(found.key);
-    });
+    (Object.keys(MORPH_TARGET_NAME_CANDIDATES) as (keyof ShapeParams)[]).forEach(
+      (axis) => {
+        const binding = driveAxis(dict, influences, axis, s[axis]);
+        if (!binding) return;
+        matched.push(...binding.keys);
+        bindings.push(binding);
+      },
+    );
   }
 
-  return matched;
+  return { matched, bindings };
 }
 
 // Whole-mesh non-uniform scale stand-in, used only when no morph targets
@@ -427,6 +614,22 @@ export interface ApplyShapeResult {
   usedMorphTargets: boolean;
   /** Morph target key names that were actually set (empty when usedMorphTargets is false). */
   matchedMorphTargets: string[];
+  /**
+   * What was inferred about each axis the rig *does* express — which morph
+   * keys carry it and under which authoring convention. Empty when the
+   * axis-scale stand-in was used.
+   */
+  bindings: MorphAxisBinding[];
+  /**
+   * Axes the rig expresses nothing for, left entirely undriven.
+   *
+   * A legitimate outcome rather than a failure — a rig may genuinely have no
+   * hip blendshape — but one worth surfacing: an axis in here is a dimension
+   * of the user's body the avatar silently cannot reflect, and the only way to
+   * notice from the outside is that the slider does nothing. All four axes
+   * appear here when the stand-in was used.
+   */
+  unmatchedAxes: (keyof ShapeParams)[];
 }
 
 /**
@@ -482,10 +685,29 @@ export function applyShapeToObject(
     // reused across a GLB swap without a full remount) before driving
     // morph targets instead.
     root.scale.set(1, 1, 1);
-    const matchedMorphTargets = applyMorphTargets(morphMeshes, s);
-    return { usedMorphTargets: true, matchedMorphTargets };
+    const { matched, bindings } = applyMorphTargets(morphMeshes, s);
+    const bound = new Set(bindings.map((b) => b.axis));
+    const unmatchedAxes = (
+      Object.keys(MORPH_TARGET_NAME_CANDIDATES) as (keyof ShapeParams)[]
+    ).filter((axis) => !bound.has(axis));
+    return {
+      usedMorphTargets: true,
+      matchedMorphTargets: matched,
+      bindings,
+      unmatchedAxes,
+    };
   }
 
   applyAxisScaleFallback(root, s);
-  return { usedMorphTargets: false, matchedMorphTargets: [] };
+  // Every axis is "unmatched" here in the sense that matters: none is driven
+  // by a blendshape. The stand-in still moves the whole mesh, so the avatar
+  // responds to all four — it just does so by stretching geometry rather than
+  // deforming a body, which is exactly the difference the mesh upgrade exists
+  // to close.
+  return {
+    usedMorphTargets: false,
+    matchedMorphTargets: [],
+    bindings: [],
+    unmatchedAxes: Object.keys(MORPH_TARGET_NAME_CANDIDATES) as (keyof ShapeParams)[],
+  };
 }

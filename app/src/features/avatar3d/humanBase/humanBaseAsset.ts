@@ -65,6 +65,17 @@
  *     ships, not after.
  *
  * ---------------------------------------------------------------------------
+ * CHECK THE ASSET BEFORE WIRING IT UP
+ * ---------------------------------------------------------------------------
+ * `inspectHumanBase(scene)` in ./inspectHumanBase.ts checks all six
+ * requirements below in code and reports which ones a candidate fails. Use it
+ * first. Every requirement here fails in a way that still renders something
+ * plausible — no blendshapes silently falls back to whole-mesh scaling, a
+ * missing skeleton only breaks once blendshapes work, a wrong up-axis renders
+ * the model lying down at a believable size — so a careful look is not a
+ * substitute for the check.
+ *
+ * ---------------------------------------------------------------------------
  * HOW TO TURN IT ON
  * ---------------------------------------------------------------------------
  * Drop the file at `assets/avatar/base-human.glb` and change

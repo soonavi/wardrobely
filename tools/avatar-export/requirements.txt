@@ -1,0 +1,5 @@
+# Export pipeline dependencies. Anny itself is NOT here: it is installed from
+# source (https://github.com/naver/anny) and pulls torch, which is a large
+# dependency nobody should acquire as a side effect of `pip install -r`.
+numpy>=1.24
+pygltflib>=1.16
