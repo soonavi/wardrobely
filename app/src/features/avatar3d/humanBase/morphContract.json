@@ -1,0 +1,101 @@
+{
+  "$comment": [
+    "THE CONTRACT BETWEEN THE EXPORT PIPELINE AND THE APP.",
+    "",
+    "tools/avatar-export/export_anny_glb.py emits exactly these morph target",
+    "names. app/src/features/avatar3d/bodyModel.ts matches them by name to",
+    "decide which body axis each one drives.",
+    "",
+    "Nothing at runtime connects those two facts. If a name here drifts from",
+    "what bodyModel's candidate lists recognise, applyShapeToObject finds no",
+    "morph targets, silently falls back to whole-mesh axis scaling, and the",
+    "avatar keeps responding to the sliders — by stretching geometry instead of",
+    "deforming a body. It looks like it works. That is the whole failure mode",
+    "the mesh upgrade exists to escape, and a typo here reintroduces it.",
+    "",
+    "So this file is asserted from BOTH sides:",
+    "  - Python: export_anny_glb.py --self-check validates it before exporting.",
+    "  - TypeScript: humanBase/__tests__/morphContract.test.ts feeds every name",
+    "    below through the REAL matcher and asserts it binds to the intended",
+    "    axis in the intended mode. That test fails in CI if either side moves.",
+    "",
+    "WHY PAIRS AND NOT ONE SLIDER PER AXIS.",
+    "A glTF morph target interpolates from the base mesh (influence 0) toward",
+    "the target (influence 1). A single bidirectional slider resting at 0.5",
+    "therefore requires the BASE MESH to be one extreme — the short, thin body —",
+    "so anything that renders before shape is applied, or at all-zero influences",
+    "(a failed shape pass, a frame before the effect runs, a tool opening the",
+    "GLB cold), shows that extreme rather than a neutral person.",
+    "",
+    "With pairs the base mesh is neutral and all-zero influences ARE the rest",
+    "pose, so every one of those cases degrades to a normal body. It costs 8",
+    "morph targets instead of 4 — negligible against the 60 that",
+    "inspectHumanBase starts warning at, and against the 564 Anny ships."
+  ],
+  "baseMesh": "neutral phenotype — all-zero influences must look like a person",
+  "axes": [
+    {
+      "axis": "height",
+      "mode": "pair",
+      "negative": { "morphTarget": "Short", "annyPhenotype": "height", "value": 0.0 },
+      "positive": { "morphTarget": "Tall", "annyPhenotype": "height", "value": 1.0 }
+    },
+    {
+      "axis": "volume",
+      "mode": "pair",
+      "negative": { "morphTarget": "Thin", "annyPhenotype": "weight", "value": 0.0 },
+      "positive": { "morphTarget": "Heavy", "annyPhenotype": "weight", "value": 1.0 }
+    },
+    {
+      "axis": "chest",
+      "mode": "pair",
+      "negative": { "morphTarget": "ChestSmall", "annyPhenotype": "bust", "value": 0.0 },
+      "positive": { "morphTarget": "ChestLarge", "annyPhenotype": "bust", "value": 1.0 }
+    },
+    {
+      "axis": "hip",
+      "mode": "pair",
+      "negative": { "morphTarget": "HipNarrow", "annyPhenotype": "hip", "value": 0.0 },
+      "positive": { "morphTarget": "HipWide", "annyPhenotype": "hip", "value": 1.0 }
+    }
+  ],
+  "naming$comment": [
+    "Each name above was chosen to survive bodyModel's longest-match",
+    "classification, which is not as simple as it looks.",
+    "",
+    "Matching is name-contains-candidate, so the candidate lists overlap:",
+    "'chestsmall' contains 'chest', 'overweight' contains 'weight'. The",
+    "classifier resolves that by taking the LONGEST matching candidate as the",
+    "most specific description of a name. Consequences worth knowing before",
+    "renaming anything here:",
+    "",
+    "  Short       -> negative 'short'. NOT 'HeightShort': that contains the",
+    "                 neutral candidate 'height', and while longest-match still",
+    "                 picks 'heightshort'... there is no such candidate, so it",
+    "                 would fall to neutral 'height' and read as a bidirectional",
+    "                 slider resting at 0.5.",
+    "  Tall        -> positive 'tall'.",
+    "  Thin        -> negative 'thin'.",
+    "  Heavy       -> positive 'heavy'. NOT 'Overweight', which also works but",
+    "                 is longer for no gain.",
+    "  ChestSmall  -> negative 'chestsmall' (10) beats neutral 'chest' (5).",
+    "  ChestLarge  -> positive 'chestlarge' (10) beats neutral 'chest' (5).",
+    "  HipNarrow   -> negative 'hipnarrow' (9) beats neutral 'hip' (3).",
+    "  HipWide     -> positive 'hipwide' (7) beats neutral 'hip' (3).",
+    "",
+    "If you need a different name, add its candidate to",
+    "MORPH_TARGET_NAME_CANDIDATES in bodyModel.ts rather than hoping the",
+    "substring happens to land — and let the TypeScript test confirm it."
+  ],
+  "annyPhenotype$comment": [
+    "`annyPhenotype` names the Anny phenotype axis each pole is sampled from,",
+    "and `value` the position on it (Anny phenotypes are 0..1 with 0.5 neutral).",
+    "",
+    "THESE ARE UNVERIFIED. Anny exposes semantic phenotypes documented as",
+    "including gender, age, height, weight and muscle plus local features; the",
+    "exact attribute names for bust and hip have not been read off a real",
+    "install. export_anny_glb.py resolves them through the model's own attribute",
+    "list and FAILS LOUDLY naming what it found if one is missing, rather than",
+    "silently exporting a mesh with two of the four axes flat."
+  ]
+}

@@ -399,19 +399,76 @@ function normalizeMorphName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-/** Finds the first morph target key in `dict` matching any candidate for one axis, trying candidates in priority order. */
-function findMorphTarget(
+type Polarity = "neutral" | "positive" | "negative";
+
+/**
+ * Classify one morph key for one axis: LONGEST MATCHING CANDIDATE WINS.
+ *
+ * WHY LONGEST AND NOT LIST ORDER. Matching is name-contains-candidate, so the
+ * lists overlap by construction — "chestsmall" contains "chest", "bodyfat"
+ * contains "fat", "overweight" contains "weight". Checking the lists in a
+ * fixed order gets one family right and the other wrong, and which family
+ * breaks depends only on which order you picked:
+ *
+ *   neutral first  → "ChestSmall" reads as a generic chest control and is
+ *                    driven to 0.5 at rest. The opposing-pair bug, back again,
+ *                    for chest and hip.
+ *   poles first    → "BodyFat" reads as the positive pole "fat" and rests at
+ *                    0 instead of 0.5, breaking a genuine bidirectional rig.
+ *
+ * Longest-match resolves both with one rule, because the longest candidate a
+ * name matches is the most specific thing said about it: "chestsmall" (10)
+ * beats "chest" (5); "bodyfat" (7) beats "fat" (3); "overweight" (10) beats
+ * "weight" (6). No list ordering to maintain, and adding a candidate cannot
+ * silently re-classify an existing one unless it is genuinely more specific.
+ */
+function classifyKey(
+  normalized: string,
+  candidates: AxisCandidates,
+): { polarity: Polarity; length: number } | undefined {
+  let best: { polarity: Polarity; length: number } | undefined;
+
+  const consider = (polarity: Polarity, list: string[]) => {
+    for (const candidate of list) {
+      if (!normalized.includes(candidate)) continue;
+      if (!best || candidate.length > best.length) {
+        best = { polarity, length: candidate.length };
+      }
+    }
+  };
+
+  consider("neutral", candidates.neutral);
+  consider("positive", candidates.positive);
+  consider("negative", candidates.negative);
+
+  return best;
+}
+
+/**
+ * Find the morph key in `dict` that best represents each polarity of one axis.
+ *
+ * Each key is classified once (see `classifyKey`), so a key can fill at most
+ * one polarity — which is what makes "both poles present" a trustworthy signal
+ * for the pair path rather than the same key counted twice. Where several keys
+ * claim the same polarity the more specific match wins; ties keep the first
+ * encountered, an arbitrary but stable choice over an unusually-named rig.
+ */
+function matchPolarity(
   dict: { [name: string]: number },
-  candidates: string[]
+  candidates: AxisCandidates,
+  polarity: Polarity,
 ): { key: string; index: number } | undefined {
-  const keys = Object.keys(dict);
-  for (const candidate of candidates) {
-    const key = keys.find((k) => normalizeMorphName(k).includes(candidate));
-    if (key !== undefined) {
-      return { key, index: dict[key] };
+  let found: { key: string; index: number; length: number } | undefined;
+
+  for (const key of Object.keys(dict)) {
+    const match = classifyKey(normalizeMorphName(key), candidates);
+    if (!match || match.polarity !== polarity) continue;
+    if (!found || match.length > found.length) {
+      found = { key, index: dict[key], length: match.length };
     }
   }
-  return undefined;
+
+  return found ? { key: found.key, index: found.index } : undefined;
 }
 
 /**
@@ -444,9 +501,9 @@ function matchPolarities(
   negative?: { key: string; index: number };
 } {
   return {
-    neutral: findMorphTarget(dict, candidates.neutral),
-    positive: findMorphTarget(dict, candidates.positive),
-    negative: findMorphTarget(dict, candidates.negative),
+    neutral: matchPolarity(dict, candidates, "neutral"),
+    positive: matchPolarity(dict, candidates, "positive"),
+    negative: matchPolarity(dict, candidates, "negative"),
   };
 }
 

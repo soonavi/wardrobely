@@ -226,6 +226,94 @@ describe("precedence", () => {
   });
 });
 
+describe("chest and hip pairs — reachable only with longest-match classification", () => {
+  // REGRESSION. With list-order classification (neutral checked first), these
+  // were unreachable: "chestsmall" contains the neutral candidate "chest", so
+  // the pair read as a bidirectional control on ChestSmall and rested at 0.5 —
+  // the opposing-pair bug, reintroduced for exactly the two axes whose pole
+  // names are supersets of their neutral name.
+  it("detects a chest pair and rests both poles at zero", () => {
+    const mesh = meshWithMorphs(["ChestSmall", "ChestLarge"]);
+    const result = applyShapeToObject(rootWith(mesh), NEUTRAL);
+
+    expect(influence(mesh, "ChestSmall")).toBe(0);
+    expect(influence(mesh, "ChestLarge")).toBe(0);
+    expect(result.bindings).toContainEqual({
+      axis: "chest",
+      mode: "pair",
+      keys: ["ChestSmall", "ChestLarge"],
+    });
+  });
+
+  it("detects a hip pair", () => {
+    const mesh = meshWithMorphs(["HipNarrow", "HipWide"]);
+    const result = applyShapeToObject(rootWith(mesh), NEUTRAL);
+
+    expect(influence(mesh, "HipNarrow")).toBe(0);
+    expect(influence(mesh, "HipWide")).toBe(0);
+    expect(result.bindings).toContainEqual({
+      axis: "hip",
+      mode: "pair",
+      keys: ["HipNarrow", "HipWide"],
+    });
+  });
+
+  it("drives a chest pair differentially", () => {
+    const up = meshWithMorphs(["ChestSmall", "ChestLarge"]);
+    applyShapeToObject(rootWith(up), { ...NEUTRAL, chest: 1 });
+    expect(influence(up, "ChestLarge")).toBe(1);
+    expect(influence(up, "ChestSmall")).toBe(0);
+
+    const down = meshWithMorphs(["ChestSmall", "ChestLarge"]);
+    applyShapeToObject(rootWith(down), { ...NEUTRAL, chest: -1 });
+    expect(influence(down, "ChestSmall")).toBe(1);
+    expect(influence(down, "ChestLarge")).toBe(0);
+  });
+
+  it("still reads a lone generic Chest morph as bidirectional", () => {
+    // The specificity rule must not break the simple case it coexists with.
+    const mesh = meshWithMorphs(["Chest"]);
+    const result = applyShapeToObject(rootWith(mesh), NEUTRAL);
+    expect(influence(mesh, "Chest")).toBe(0.5);
+    expect(result.bindings).toContainEqual({
+      axis: "chest",
+      mode: "bidirectional",
+      keys: ["Chest"],
+    });
+  });
+
+  it("prefers a generic Chest control when a rig offers it alongside a pair", () => {
+    // Selection precedence is unchanged by the classification fix: an undriven
+    // morph rests at 0, neutral for a pole and extreme for a slider.
+    const mesh = meshWithMorphs(["Chest", "ChestSmall", "ChestLarge"]);
+    const result = applyShapeToObject(rootWith(mesh), NEUTRAL);
+
+    expect(influence(mesh, "Chest")).toBe(0.5);
+    expect(influence(mesh, "ChestSmall")).toBe(0);
+    expect(influence(mesh, "ChestLarge")).toBe(0);
+    expect(result.bindings).toContainEqual({
+      axis: "chest",
+      mode: "bidirectional",
+      keys: ["Chest"],
+    });
+  });
+
+  it("reads Overweight as a positive pole, not as neutral 'weight'", () => {
+    // "overweight" (10 chars) beats "weight" (6). Under list-order
+    // classification this rested at 0.5 and looked permanently heavy.
+    const mesh = meshWithMorphs(["Underweight", "Overweight"]);
+    const result = applyShapeToObject(rootWith(mesh), NEUTRAL);
+
+    expect(influence(mesh, "Overweight")).toBe(0);
+    expect(influence(mesh, "Underweight")).toBe(0);
+    expect(result.bindings).toContainEqual({
+      axis: "volume",
+      mode: "pair",
+      keys: ["Underweight", "Overweight"],
+    });
+  });
+});
+
 describe("partial rigs", () => {
   it("reports the axes a rig expresses nothing for", () => {
     const mesh = meshWithMorphs(["Height", "Weight"]);
