@@ -41,3 +41,6 @@ yarn-error.log*
 *.ipa
 *.aab
 *.apk
+
+# screenshot output (tools/shots.mjs)
+screenshots/
