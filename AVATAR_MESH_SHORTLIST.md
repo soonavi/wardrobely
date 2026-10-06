@@ -1,6 +1,15 @@
 # Human base mesh — licensing shortlist
 
-**Researched:** 2026-10-04. **Status:** recommendation, not a decision.
+**Researched:** 2026-10-04. **Re-evaluated:** 2026-10-06.
+**Status:** recommendation, not a decision.
+
+> **2026-10-06 — the recommendation below is contested.** MPFB2 was re-examined
+> and looks like the better first candidate, mainly because Anny's documented
+> export is PLY, which carries neither a skeleton nor morph targets, and
+> requirement 4 is the skeleton. The Anny section is kept intact; read it with
+> [Alternative: MakeHuman / MPFB2](#alternative-makehuman--mpfb2) before
+> acting on it. Nothing here is settled until one candidate is exported and put
+> through `inspectHumanBase()`.
 
 The avatar is ~50 three.js primitives and will never read as human. The code
 path for a rigged mesh is built and tested (`app/src/features/avatar3d/humanBase/`);
@@ -111,27 +120,122 @@ costs real megabytes for shapes this app never drives.
 
 ---
 
-## Alternative: MakeHuman directly
+## Alternative: MakeHuman / MPFB2
 
-<http://www.makehumancommunity.org/content/license.html> · [FAQ: can I sell models made with MakeHuman?](http://www.makehumancommunity.org/wiki/FAQ:Can_I_sell_models_created_with_MakeHuman%3F)
+**Re-evaluated 2026-10-06.** The original entry here judged *MakeHuman the
+desktop app*, concluded "a plain export is a baked mesh … failing requirement 2
+outright", and filed it as a fallback. That conclusion is correct about the
+desktop app and wrong about the toolchain, because it did not separate the
+desktop app from **MPFB2**, the Blender-native plugin that supersedes
+MHBlenderTools. Evaluated properly, MPFB2 is a stronger candidate than Anny on
+the two things that actually cost time here — requirement 4 and the export
+path — and is at worst equal on licensing.
 
-**Licensing is the best of any option and is unambiguous.** Software is
-AGPLv3; **bundled base meshes and exported characters are CC0**. Explicitly:
-usable in a closed-source commercial app, no attribution, no separate
-commercial license needed. Still current — v1.3.0, July 2026.
+<https://static.makehumancommunity.org/mpfb/docs/index.html> ·
+<https://github.com/makehumancommunity/mpfb2> ·
+<https://extensions.blender.org/add-ons/mpfb/>
 
-**Why it is the alternative and not the recommendation:** a plain MakeHuman
-export is a *baked* mesh at one fixed body shape. The shape targets are applied
-at export, so you get no blendshapes — failing requirement 2 outright.
+### Against the six requirements
 
-Getting shape keys requires the Blender route: load targets as shape keys via
-MHBlenderTools' "Load shapes from targets", then export glTF (Blender's
-exporter emits morph targets automatically). Reports from that workflow note
-**many `.targets` files do not load correctly in Blender**, so it is fiddlier
-than Anny, which already has the phenotype system solved in code.
+| Req | MPFB2 | vs Anny |
+|---|---|---|
+| 1 — `.glb` | Blender's glTF exporter, which emits morph targets and skinning natively. | **Better.** Anny's documented export is PLY, which carries neither. |
+| 2 — blendshapes for height/volume/chest/hip | Targets *are* shape keys: "a target is conceptually a blend shape (a.k.a shape key)". Macrodetails (height, weight, muscle) materialise as shape keys on the basemesh; detail targets load from `.target` files. | **Equal in reach, worse in shape.** See the hazard below. |
+| 3 — slider convention | Macro shape keys arrive **encoded as combination targets**, not one clean axis per slider. Needs a bake either way. | **Worse as shipped**, equal after baking. |
+| 4 — skeleton garments skin to | Several built-in rigs plus Rigify, **and a clothes asset library already fitted to the basemesh**. | **Clearly better.** This is the requirement the slot file calls "most likely to be discovered late and be expensive". |
+| 5 — orientation | Blender export, Y-up conversion is a checkbox. | Equal. |
+| 6 — budget | HM08 is **13,380 verts / 14,766 quads** (~29.5k tris). Proxymeshes (alternative topologies) exist if that is too heavy on a mid-range device. | **Equal, with an escape hatch** Anny does not document. |
 
-Pick this if the Anny pipeline stalls — the licence is cleaner and the asset
-lineage is the same.
+### Why this beats Anny on the expensive requirement
+
+Requirement 4 is a skeleton garments can be skinned to. Anny offers a 104-bone
+rig — but its documented export is **PLY**, a format with no concept of a
+skeleton or a morph target. So reaching a skinned, morph-driven `.glb` from
+Anny means writing a bespoke exporter that carries the rig and the baked axes
+across by hand. The existing entry frames the export step as "an advantage, not
+a tax" on the grounds that we would bake four blendshapes rather than 564. That
+part is right. What it omits is that the *skeleton* has to survive the same
+trip, and PLY will not carry it.
+
+MPFB2 ends in Blender, where mesh, rig and shape keys are all first-class and
+the glTF exporter writes all three. The pipeline is a file format conversion
+rather than an exporter to be written and maintained.
+
+Its clothes library is a second, less obvious win: garments already fitted to
+the same basemesh are exactly the input `garmentVisual.ts` would need to move
+from texture-on-body to real skinned garments — the step that currently caps
+try-on realism no matter which base mesh wins.
+
+### Licensing — unambiguous, and that is the point
+
+All core MakeHuman/MPFB assets are **CC0**: no attribution, no copyright
+notice, commercial use unrestricted. Source is GPL (MPFB) / AGPL (MakeHuman),
+which does not reach a `.glb` we export and ship — the asset is the output of
+the tool, not a derivative of its code.
+
+Crucially this sidesteps the open hazard in the Anny entry entirely. There is
+no `pip install` that "may download non-commercial only assets when needed",
+because there is no SMPL-X topology anywhere in the MPFB2 asset set to
+download. The question counsel was going to be asked — *can an anny-topology
+build still end up with non-commercial data on disk?* — does not arise.
+
+Note this is the same asset lineage either way: Anny's CC0 mesh is itself
+"MakeHuman assets adapted from MPFB2". Going to MPFB2 is going to the source,
+not to a different-quality mesh.
+
+### The real hazard: macro shape keys are encoded combinations
+
+This is the finding that matters, and it is not a licensing issue.
+
+MakeHuman's phenotype sliders are **not** one target per axis. Height, weight
+and muscle are *macrodetails* — "combinations of several targets interacting to
+create a larger modification", and applying them produces "a number of encoded
+shape keys" rather than one named `Height`. The underlying targets are a
+simplex of combinations (`male-young-muscle-heavy` and its neighbours), blended
+by weight.
+
+So a naive export does **not** hand `applyShapeToObject` four clean 0..1 axes.
+It hands it a pile of combination keys whose names mean nothing to
+`MORPH_TARGET_NAME_CANDIDATES`. Requirement 2 would technically pass
+(`hasMorphTargets` is true) while the rig is useless — exactly the silent
+half-failure the slot file warns about.
+
+**The fix is the bake step, and both candidates need it.** Generate the mesh at
+each axis extreme, diff against the neutral mesh, and author four clean
+vertex-delta morph targets named to our convention. For MPFB2 this is a Blender
+Python script driving the macro sliders and snapshotting the result; for Anny it
+is a PyTorch script doing the same. Neither is free; neither is large. The
+difference is that after the bake, MPFB2 still has the rig and a working glTF
+exporter, and Anny still needs an exporter written.
+
+The original entry's warning that **many `.targets` files do not load correctly
+in Blender** applies to hand-loading individual `.target` files. It is much less
+relevant to the macro path, which MPFB2 drives itself.
+
+### Verdict
+
+**Promote MPFB2 from fallback to the candidate to try first**, on three
+grounds, in order of weight:
+
+1. It is the only path that reaches a **skinned, morph-driven `.glb`** without a
+   bespoke exporter — requirement 4, the expensive one.
+2. Its licensing is unambiguously CC0 with no install-time hazard, which
+   removes an open question currently blocking a counsel review.
+3. Its clothes library is the natural input for real skinned garments later.
+
+Against: the Blender toolchain is GUI-centric and scripts against Blender's
+Python API rather than a plain `pip` library, so the bake is less pleasant to
+run in CI than Anny's would be. That is a real cost and it is the one reason to
+keep Anny alive as the alternative.
+
+Anny stays a legitimate second choice. Nothing found here contradicts its
+technical claims — 564 semantic blendshapes genuinely are a better *parametric*
+model. The point is that we do not ship a parametric model; we ship one baked
+`.glb`, and that changes which strengths matter.
+
+**Next step is unchanged and cheap:** export one candidate and run
+`inspectHumanBase()` on it. That settles requirements 1-6 in seconds and is
+worth more than any further desk research — including this section.
 
 ---
 
@@ -172,12 +276,15 @@ morph targets is a documented query parameter. Two problems:
 
 ## Before committing
 
-1. **Read the actual LICENSE files in `naver/anny`**, specifically whether
-   anything we would ship traces back to the SMPL-X topology. The findings
-   above come from the repository's own licensing notes read at a distance;
-   the mixed-licence structure is exactly the kind of thing worth confirming
-   at the source before spending build time on it. If counsel is already
-   reviewing the privacy policy, this is cheap to add to that pass.
+1. **Only if Anny wins: read the actual LICENSE files in `naver/anny`**,
+   specifically whether anything we would ship traces back to the SMPL-X
+   topology. The findings above come from the repository's own licensing notes
+   read at a distance; the mixed-licence structure is exactly the kind of thing
+   worth confirming at the source before spending build time on it. If counsel
+   is already reviewing the privacy policy, this is cheap to add to that pass.
+   **Going the MPFB2 route retires this item** — the CC0 position there is
+   unambiguous and there is no non-commercial asset in the set to fetch, so
+   there is nothing for counsel to rule on.
 2. **Export one candidate GLB and run `inspectHumanBase()` on it.** That
    answers requirements 1-6 in seconds, and answers them before any screen
    depends on the asset.
