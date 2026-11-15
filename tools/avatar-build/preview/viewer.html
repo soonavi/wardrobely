@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Selv avatar preview</title>
+<style>html,body{margin:0;height:100%;background:#f3f1ee}canvas{display:block;width:100vw;height:100vh}</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// A neutral studio: one key, one fill, one rim, soft ambient. Deliberately
+// close to what the app's Canvas sets up, so a preview is honest about how
+// the avatar will read in the product.
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#f3f1ee');
+scene.add(new THREE.HemisphereLight('#ffffff', '#b9b2a8', 1.15));
+const key = new THREE.DirectionalLight('#fff4e6', 2.2); key.position.set(1.6, 2.6, 3.2); scene.add(key);
+const fill = new THREE.DirectionalLight('#dfe8ff', 0.7); fill.position.set(-2.4, 1.2, 1.6); scene.add(fill);
+const rim = new THREE.DirectionalLight('#ffffff', 0.9); rim.position.set(0.4, 2.2, -3.0); scene.add(rim);
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 50);
+
+const CAMS = {
+  front: { pos: [0, 0.95, 4.4], target: [0, 0.9, 0] },
+  back: { pos: [0, 0.95, -4.4], target: [0, 0.9, 0] },
+  side: { pos: [4.4, 0.95, 0], target: [0, 0.9, 0] },
+  three_quarter: { pos: [2.6, 1.1, 3.6], target: [0, 0.9, 0] },
+  face: { pos: [0, 1.6, 1.0], target: [0, 1.58, 0] },
+  face_three_quarter: { pos: [0.55, 1.62, 0.85], target: [0, 1.58, 0] },
+  face_side: { pos: [1.0, 1.6, 0.05], target: [0, 1.58, 0] },
+  bust: { pos: [0, 1.45, 1.9], target: [0, 1.38, 0] },
+  top: { pos: [0, 3.4, 0.6], target: [0, 1.5, 0] },
+};
+
+let root = null;
+let runtime = null;
+window.__info = {};
+
+function applyGenericJob(shot) {
+  // Runtime-free mode: visibility by node name, raw morph influences.
+  const show = shot.show ? new Set(shot.show) : null;
+  const hide = new Set(shot.hide || []);
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.visible = show ? show.has(o.name) : true;
+    if (hide.has(o.name)) o.visible = false;
+    if (o.morphTargetDictionary && o.morphTargetInfluences) {
+      o.morphTargetInfluences.fill(0);
+      for (const [k, v] of Object.entries(shot.morphs || {})) {
+        const i = o.morphTargetDictionary[k];
+        if (i !== undefined) o.morphTargetInfluences[i] = v;
+      }
+    }
+  });
+}
+
+window.__shoot = (shot) => {
+  let report = null;
+  if (runtime) report = runtime.applyShot(root, shot, THREE) || null;
+  else applyGenericJob(shot);
+  const cam = typeof shot.cam === 'string' || !shot.cam ? CAMS[shot.cam || shot.name] || CAMS.front : shot.cam;
+  camera.fov = cam.fov || 30;
+  camera.position.fromArray(cam.pos);
+  camera.lookAt(new THREE.Vector3().fromArray(cam.target));
+  camera.updateProjectionMatrix();
+  scene.updateMatrixWorld(true);
+  renderer.render(scene, camera);
+  return report;
+};
+
+try {
+  if (new URLSearchParams(location.search).get('runtime')) {
+    runtime = await import('/runtime.js');
+  }
+  const gltf = await new GLTFLoader().loadAsync('/model.glb');
+  root = gltf.scene;
+  scene.add(root);
+  const meshes = [];
+  root.traverse((o) => { if (o.isMesh) meshes.push({ name: o.name, verts: o.geometry.attributes.position.count, skinned: !!o.isSkinnedMesh, morphs: Object.keys(o.morphTargetDictionary || {}).length }); });
+  const box = new THREE.Box3().setFromObject(root);
+  window.__info = { meshes, min: box.min.toArray(), max: box.max.toArray(), extras: gltf.scene.userData };
+  if (runtime && runtime.init) window.__info.runtime = runtime.init(root, THREE) || null;
+  window.__ready = true;
+} catch (e) {
+  window.__failed = String(e && e.stack || e);
+}
+</script>
+</body>
+</html>
