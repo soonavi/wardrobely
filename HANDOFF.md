@@ -1,219 +1,172 @@
-# Handoff — next session
+# Handoff
 
-Written 2026-10-04. Read this first; it is a runbook, not a status report.
+Written 2026-11-16. Read this first; it is a runbook, not a status report.
 
 ---
 
-## 1. Do this first: apply migrations 008 and 009
+## 1. What Selv is
 
-**These are the only pending items that are actually blocked on nothing.** Ben
-reconnected the Supabase connector on 2026-10-04, but connectors are read at
-session start, so the session that wrote this file never saw it. A fresh session
-should have the `mcp__Supabase__*` tools.
+**Design a character that is actually your size, put your real wardrobe on
+it, and see an outfit before you wear it or buy it.**
 
-Currently applied, through `007`:
+Three things have to be true for that sentence to be honest, and they are the
+order of work:
 
+1. **The character is a person.** A human body with your skin, face, hair and
+   build — and, when you give your height and weight, your proportions.
+2. **Your clothes go on it.** Every garment you add shows up on that body in a
+   believable silhouette and its real colour.
+3. **It is worth opening tomorrow.** Outfits you saved, things you might buy
+   shown on you, a share card of a look.
+
+Until 2026-11-16 the first of these was false: the "3D character" was about
+fifty spheres and capsules, and the first thing a new user saw was a flat SVG
+bust. That is fixed (§2). The second is true at silhouette-and-colour level.
+The third is partly built and unevenly finished (§4).
+
+No photo of the user is ever taken. The avatar is authored choices plus,
+optionally, two numbers. That is a product decision as much as a privacy one
+(see `AVATAR_CREATOR_PLAN.md`) and nothing below changes it.
+
+---
+
+## 2. What changed on 2026-11-16
+
+| | Before | Now |
+|---|---|---|
+| Avatar | ~50 three.js primitives | Human mesh, 53-bone rig, 33 calibrated shape targets |
+| First screen for a new user | 2D SVG bust | Live 3D character in the creator |
+| Body | 5 fixed presets | Presets + 8 sliders; profile height/weight solved onto the mesh |
+| Garments on the avatar | Tinted primitives | 22 fitted templates chosen from category + name, over a base layer |
+| Hair / brows / beard / glasses | Sphere caps and boxes | 11 hairstyles, 4 brows, 4 beards, glasses, earrings |
+| Web | Could not build | Builds and runs (`react-native-web` added) |
+| Proof it renders | None (159 tests, no model ever loaded) | Tests load the real `.glb`; `tools/webcheck` screenshots the real screens |
+
+Where things live:
+
+- `tools/avatar-build/` — builds `app/assets/avatar/selv-human.glb` from
+  MakeHuman's CC0 data. **Read its README**: it covers the licence position
+  and answers the "non-commercial assets" question the last handoff left open.
+- `app/src/features/avatar3d/human/` — the runtime: `HumanRig` (shape, binding,
+  skeleton), `humanShape` (sliders and real measurements → target weights),
+  `humanLook` (character + outfit → parts and colours), `garmentTemplates`,
+  `HumanAvatar` (the component), `HumanStage` (canvas + lights + camera).
+- `tools/webcheck/` — runs the exported web build against a mocked Supabase in
+  headless Chromium and screenshots each screen.
+
+### How to check it yourself
+
+```bash
+cd app && npm ci
+npm run typecheck && npm test -- --ci && npm run lint     # 493 tests
+
+# see the screens
+EXPO_PUBLIC_SUPABASE_URL=https://selvtest.supabase.co EXPO_PUBLIC_SUPABASE_ANON_KEY=test-anon-key \
+  npx expo export --platform web --output-dir /tmp/selv-web
+node ../tools/webcheck/run.mjs --dist /tmp/selv-web --out /tmp/selv-shots
+node ../tools/webcheck/run.mjs --dist /tmp/selv-web --out /tmp/selv-shots --scenario new-user
+
+# run it for real (needs app/.env with the project URL and anon key)
+npx expo start --web        # or --ios / --android
 ```
-20260704202200  initial_wardrobe_schema
-20260704213729  add_body_metrics_to_profiles
-20260714185452  create_waitlist
-20260714192625  avatars_and_garment_templates
-20260720073640  avatar_customization
-20260827185854  commerce_affiliate_layer          (002)
-20260827185916  affiliate_click_rpc               (003)
-20260827185945  waitlist_signups                  (004)
-20260827190348  waitlist_shop_source              (005)
-20260827191601  age_gate                          (006)
-…              pin_function_search_path           (007)
-```
-
-Pending: `app/supabase/migrations/008_garment_measurements.sql` and
-`009_assistant.sql`.
-
-### Procedure
-
-1. `mcp__Supabase__list_migrations` on project `tmldopeuctftnteerxjg`
-   (`wardrobe-app`, us-east-1) and confirm the list above. If `008`/`009`
-   already appear, stop — someone else applied them.
-2. Read each migration file and apply it **verbatim** with
-   `mcp__Supabase__apply_migration`, `008` before `009`. Both are additive and
-   guarded (`if not exists`, `drop … if exists` before create), so a partial
-   failure can be fixed and the file re-applied.
-3. Verify:
-
-```sql
-select
-  (select count(*) from information_schema.columns
-    where table_schema='public' and table_name='garments'
-      and column_name in ('measurement_source','chest_cm','waist_cm','hip_cm',
-                          'length_cm','shoulder_cm','sleeve_cm','inseam_cm')) as garment_measurement_cols,  -- expect 8
-  (select count(*) from information_schema.tables
-    where table_schema='public'
-      and table_name in ('assistant_preferences','assistant_suggestions'))     as assistant_tables,          -- expect 2
-  (select count(*) from pg_policies
-    where schemaname='public' and tablename='assistant_suggestions'
-      and cmd in ('INSERT','ALL'))                                             as assistant_insert_policies,  -- expect 0
-  (select enabled from public.assistant_preferences limit 1)                   as any_enabled;                -- expect NULL (no rows)
-```
-
-`assistant_insert_policies` must be **0**. There is deliberately no client
-insert policy — a suggestion row records a call *we* made to Claude, and a
-client able to write one could fabricate a recommendation history.
-
-4. Run `mcp__Supabase__get_advisors` with `type: "security"`. Expect the known,
-   intentional findings only: `brand_api_keys` RLS-with-no-policies,
-   `waitlist_count()` anon-executable (it powers the live landing-page counter —
-   do **not** revoke it), the definer RPCs callable by `authenticated`, and
-   `handle_new_user()` flagged as anon-callable (false positive: it returns
-   `trigger`, and Postgres refuses to invoke trigger functions directly).
-   **Anything else is new and worth reading.**
-5. Regenerate nothing. `app/src/lib/database.types.ts` is hand-written (its own
-   header says so) and already carries the `008`/`009` types.
-
-### What applying them does and does not turn on
-
-- **Garment measurements** become writable. No UI reaches them yet, so nothing
-  changes for users until the screens are built (§4).
-- **The assistant stays off.** `assistant_preferences.enabled` defaults to
-  `false` and Ben has confirmed it stays off for now. Applying `009` creates the
-  table; it does not enable anything for anybody.
-- The assistant additionally needs `ANTHROPIC_API_KEY` in Supabase Edge Function
-  secrets and `supabase functions deploy wardrobe-assistant`. It returns
-  `503 assistant_unavailable` when the key is missing, so a misconfiguration
-  looks like an outage rather than a model with no ideas.
 
 ---
 
-## 2. Where the project stands
+## 3. Not verified — do this before believing anything else
 
-`main` carries, and all of it is green (`typecheck`, `479/479` tests, `lint`
-clean, CI on every PR and push to main):
+**Nothing here has run on a physical iOS or Android device.** Everything was
+verified in headless Chromium (software GL) and in Jest. The web renderer and
+the native one share the runtime but not the GL stack. Specifically unproven on
+expo-gl:
 
-| Area | State |
-|---|---|
-| 3D try-on, affiliate commerce | **Live.** Audited 32/32 on the write path. Do not rebuild — it already exists. |
-| CI, 13+ age gate, reconciled legal docs | Live |
-| Backend verification scripts + results | Run against the live project: 134 PASS, 0 unexplained FAIL (`app/supabase/verification/RESULTS_2026-08-27.md`) |
-| Garment measurements | Code + tests on `main`. **Migration pending (§1).** No UI. |
-| Wardrobe assistant | Code + Edge Function + settings card on `main`. **Migration pending, off by default, no screen calls it.** |
-| Avatar mesh path | Built and tested. **No asset** — still renders ~50 primitives. |
-| Live database | Migrations `002`–`007` applied and verified |
+- loading a 13 MB `.glb` through expo-asset on a mid-range phone (time, memory);
+- skinned meshes with alpha-blended parts (brows, lashes, beards);
+- frame rate with a full outfit.
 
----
-
-## 3. Open decisions
-
-**Resolved — assistant stays off.** Ben's call, 2026-10-04. The product intent
-is an assistant that is simply on with a toggle; the column is one word from
-that. Flip the default in a migration **once `legal/PRIVACY_POLICY.md` names
-Anthropic as a processor** — see `ASSISTANT_PRIVACY_IMPACT.md`, which is written
-for counsel and lists the five things they need to decide.
-
-**Open — the Anny install-time licence question.** `AVATAR_MESH_SHORTLIST.md`
-recommends Anny, and the mesh we would ship is **CC0** (verified against
-`src/anny/data/mpfb2/LICENSE.md`). The SMPL-X assets are *not* in the repo —
-they are behind a separate `noncommercial.zip`. But the README's install block
-says, verbatim:
-
-> `pip install anny # Minimal install.`
-> `# Note that the free install may download non-commercial only assets when needed.`
-
-So the question is not "which topology do we pick" (the pipeline already refuses
-`smpl` and `smplx`) but **can a build that only ever requests the `anny`
-topology still end up with non-commercial data on disk or in the bundle?** That
-is a build-hygiene question for counsel, and it is the last thing between Selv
-and a human-looking avatar.
-
-**Open — the `om` vault has never been reachable.** `CLAUDE.md` requires
-searching the obsidian-mind vault before proposing any architecture, dependency
-or design. It has not been connected in any session so far. Several
-architectural decisions now on `main` were made without it: LLM-in-an-Edge-
-Function, measurement provenance, mesh-over-primitives, pairs-over-sliders. If
-the vault records any of those as rejected, that is a revert, not a redirect.
-**Worth connecting and checking before building further on them.**
+The asset was built to minimise that risk — no textures, no compressed
+geometry, no GPU morph targets — and `HumanAvatar` falls back to the old
+primitive avatar if the mesh fails to load, so the worst case is the old app,
+not a blank screen. But that is a design intention, not a measurement.
 
 ---
 
-## 4. Next work, in order of leverage
+## 4. Known gaps, in order of how much they hurt
 
-### Launch blockers (not engineering, longest lead times, untouched)
-
-`SHIP_READINESS.md` counts 19 blocking items. The critical path has not moved:
-
-1. **Apple Developer Program enrollment** + App Store Connect record. Bundle id
-   `com.selv.app` is already set. Needs the legal entity name — also a `[TBD]`
-   in both legal docs, so decide it once and it serves both.
-2. **Attorney review of the privacy policy and Terms together.** Hand them §0 of
-   `SHIP_READINESS.md` verbatim plus `ASSISTANT_PRIVACY_IMPACT.md`. The drafts
-   describe a pre-pivot product; a reviewer working from the text alone will
-   bless the wrong app.
-3. **Account deletion end-to-end on a device** (§1.9) — the highest App Review
-   rejection risk. The database contract underneath it is proven; the
-   `delete-account` Edge Function has never run.
-
-### Engineering
-
-**Assistant → make it real.** There is an API and a settings card, but **no
-screen calls `getSuggestions`**. The homes Ben described are `AddGarmentScreen`
-(after a scan) and `CharacterTryOnScreen` (while trying something on). Also wire
-`markSuggestion` into dismiss/act, or `assistant_suggestions.dismissed_at` /
-`acted_at` stay empty and the feature is unfalsifiable.
-
-**Measurements → make them reachable.** Fields in `AddGarmentScreen` with an
-"estimate it for me" path calling `estimateGarmentMeasurements`; display via
-`summarizeMeasurements` on `GarmentDetailScreen`, which carries the "estimated"
-qualifier for free. No backfill needed — existing garments have
-`measurement_source = null`, which is correct.
-
-**Avatar → garment skinning is the expensive part.** Once an asset lands:
-export via `tools/avatar-export/`, run `inspectHumanBase()` on it **before**
-wiring anything, set `HUMAN_BASE_SOURCE`, confirm `onShapeApplied` reports
-`usedMorphTargets: true`. Then the real work: morph targets deform only the mesh
-they are authored on, so **garments must be skinned to the asset's skeleton, not
-parented under it**. The pipeline writes no skeleton yet, so
-`inspectHumanBase` reports requirement 4 as blocking — correctly and
-deliberately.
-
-**Close the verification gaps.** The HTTP appendices for scripts `01`/`02`/`03`
-and `04`'s Phase 2 all need a **real user access token**, which cannot be minted
-without the project JWT secret. If Ben signs into a test account and provides
-`session.access_token`, that closes the last "the database is right, but is
-PostgREST wired right?" question in one pass.
+1. **The share card and the Outfits grid still draw the old 2D figure.**
+   `ShareCard.tsx` and `OutfitsScreen` use `AvatarPreview` (SVG). Sharing a
+   look is the growth loop; it should be a snapshot of the 3D canvas.
+2. **Garment photos do not reach the avatar.** Garments are tinted with a
+   colour resolved from the colour field, then the name, then a hash. A
+   garment with no colour word gets an arbitrary neutral. Either extract a
+   dominant colour at upload or ask for a swatch in `AddGarmentScreen`.
+3. **The template is guessed and cannot be corrected.** `pickGarmentTemplate`
+   reads category + name. `GarmentVisual.template` is the hook for an explicit
+   choice; no screen sets it and nothing stores it.
+4. **Accessories are not drawn** (bag, belt, hat share one category and no
+   shape). `buildHumanLook` reports them as `undrawn`; the slot chip still
+   shows them as worn.
+5. **Outerwear replaces the top instead of layering over it.** The mesh
+   supports an `outer` slot (`HumanEquipped.outer`); the try-on screen has four
+   slots and puts outerwear in `top`.
+6. **Garment measurements and the wardrobe assistant have no UI.** Code,
+   migrations and an Edge Function exist; no screen reaches them. The assistant
+   stays off by default until the privacy policy names Anthropic as a
+   processor (`ASSISTANT_PRIVACY_IMPACT.md`) — that decision stands.
+7. **Selv+ is a waitlist and the shop is seeded demo data.** Unchanged.
+8. **Launch blockers that are not engineering** — Apple Developer enrolment,
+   attorney review of the privacy policy and Terms, account deletion proven on
+   a device. `SHIP_READINESS.md` lists them; none has moved.
 
 ---
 
-## 5. Hard-won things that will bite you
+## 5. Decisions made without the vault
 
-**Morph target names are load-bearing and fail silently.** If a GLB's blendshape
-names do not match `MORPH_TARGET_NAME_CANDIDATES` in `bodyModel.ts`,
-`applyShapeToObject` finds nothing, falls back to whole-mesh axis scaling, and
-the avatar **still responds to every slider** by stretching geometry. It looks
-like it works. `morphContract.test.ts` guards the pipeline's eight names against
-the real matcher; keep it passing. Classification is **longest-match**, not list
-order — two separate bugs came from getting that wrong.
+`CLAUDE.md` requires searching the `om` obsidian-mind vault before proposing
+an architecture or a dependency. **It was not reachable in this session, as in
+every session before it.** These were decided without it; if the vault records
+any as rejected, that is a revert:
 
-**glTF morph target names live in `mesh.extras.targetNames`.** Omit that array
-and three.js names them `"0"`, `"1"`, … and all name matching fails. The whole
-export pipeline is arranged around that one array being right.
+- a MakeHuman-derived mesh, read as CC0 files (rather than Anny's runtime,
+  a commissioned asset, or a vendor SDK);
+- shape applied on the CPU and garments bound to the body, rather than GPU
+  morph targets on every mesh;
+- `react-native-web` as a dependency, and the web build it enables;
+- removing `avatar3d/humanBase` and `tools/avatar-export`.
 
-**`storage.objects` is DELETE-protected by the platform.** Supabase ships a
-`protect_objects_delete` trigger that refuses direct SQL deletes for every role,
-`postgres` included. Verification script `03` predates it; its §3 now runs inside
-`begin … rollback`. Do not disable the trigger.
+---
 
-**The container is ephemeral and recycles.** After any idle gap, `node_modules`
-is gone — `cd app && npm ci` before running checks, or `jest: not found` and a
-confusing eslint stack trace.
+## 6. Corrections to the previous handoff
 
-**Connectors are read at session start.** Reconnecting one mid-session does not
-help that session. This file exists because of exactly that.
+- **Migrations `008` and `009` are already applied** (as `garment_measurements`
+  20261004083127 and `assistant` 20261004091445). The old §1 said to apply
+  them first; do not.
+- **"3D try-on … Live. Do not rebuild — it already exists"** described the
+  primitive avatar. The affiliate system is real and audited and should still
+  be left alone; the try-on rendering has now been rebuilt.
 
-**Supabase + Canva both needed re-authorization** as of 2026-10-04. Supabase was
-reconnected; Canva was not, and nothing depends on it.
+---
 
-**GitHub access is scoped to `soonavi/wardrobely`.** `gh api` works for that
-repo (useful for polling check runs); anything else returns 403. Use `WebFetch`
-or `curl` for third-party repos.
+## 7. Things that will bite you
 
-**Do not rebuild the affiliate system.** It exists, it is audited, and it has
-been mistaken for missing once already.
+- **The `.glb` is generated.** Edit `tools/avatar-build`, rebuild, run the
+  tests. `humanAvatar.test.ts` checks the file against the creator's options
+  and the garment template list, so adding a hairstyle or a template to one
+  side and not the other fails CI.
+- **Target names are a contract.** The original eight (Short/Tall, Thin/Heavy,
+  ChestSmall/ChestLarge, HipNarrow/HipWide) are kept; the build refuses a new
+  name that contains a word the legacy fuzzy matcher in `bodyModel.ts` would
+  claim.
+- **Never call `skeleton.calculateInverses()` on the rig.** It reads world
+  matrices, and the avatar lives on a turntable. `HumanRig.reseatSkeleton`
+  writes the inverses in the rig's own space; there is a regression test.
+- **`Alert` comes from `src/lib/alert`**, not `react-native`: React Native's is
+  a no-op on web.
+- **Canvas and hooks come from `avatar3d/r3f`**, which resolves to the native
+  or the web renderer. Importing `@react-three/fiber/native` directly breaks
+  the web build.
+- **`storage.objects` is DELETE-protected by the platform.** Do not disable
+  the trigger.
+- **The container is ephemeral.** After an idle gap, `cd app && npm ci`.
+- **Connectors are read at session start.** Reconnecting one mid-session does
+  not help that session.
+- **Do not rebuild the affiliate system.** It exists and is audited.

@@ -1,5 +1,12 @@
 # Avatar pivot — photo → character creator
 
+> **Superseded 2026-11-16.** "Ship the 2D SVG character as v1" (option D below)
+> is no longer the plan or the product: the creator, try-on and viewer render a
+> real 3D human (`app/src/features/avatar3d/human/`, asset built by
+> `tools/avatar-build/`). The data model described here is unchanged apart from
+> the new `body` sliders. The share card and the Outfits grid still draw the
+> old 2D figure.
+
 **Decision (this session):** users no longer upload a photo or rely on measurements. They **design a customizable character** (skin, face, eyes, hair, brows, facial hair, body type, accessories). This is a better product on three axes: it kills the photo→3D realism problem, removes the biggest privacy/body-image risk, and is far more buildable than a photoreal twin.
 
 ---

@@ -1,5 +1,11 @@
 # Human base mesh — licensing shortlist
 
+> **Superseded 2026-11-16.** The avatar now ships as a real human mesh built
+> from the CC0 MakeHuman data this document recommends reaching through Anny —
+> read as plain files, with no Anny code run. The open "non-commercial assets"
+> question below is answered in `tools/avatar-build/README.md`. This file is
+> kept for the licensing research; its "no asset yet" status is no longer true.
+
 **Researched:** 2026-10-04. **Status:** recommendation, not a decision.
 
 The avatar is ~50 three.js primitives and will never read as human. The code
