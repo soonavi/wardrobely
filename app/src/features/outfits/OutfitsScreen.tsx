@@ -275,14 +275,14 @@ export default function OutfitsScreen() {
         <View style={styles.centerFill}>
           <Text style={styles.emptyTitle}>No saved outfits yet</Text>
           <Text style={styles.emptyText}>
-            Layer some garments onto your avatar in the Try-On studio, then
+            Layer some garments onto your avatar in the Try On tab, then
             save the look to see it here.
           </Text>
           <Pressable
             style={styles.emptyCta}
             onPress={() => router.push("/(tabs)/tryon" as const)}
           >
-            <Text style={styles.emptyCtaText}>Go to Try-On studio</Text>
+            <Text style={styles.emptyCtaText}>Go to Try On</Text>
           </Pressable>
         </View>
       ) : (
