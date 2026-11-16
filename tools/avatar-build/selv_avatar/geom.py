@@ -130,6 +130,34 @@ class TriMesh:
         return hit, pts, tri
 
 
+def radial_table(mesh: "TriMesh", origin: np.ndarray, dirs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Distance from `origin` to the surface along each unit direction in `dirs`.
+
+    Returns (first, last): the first crossing (the inside of the wall the ray
+    leaves through) and the outermost one, which is the silhouette - for a
+    head, that includes the ears. Misses are NaN in both.
+    """
+    a, b, c = (mesh.P[mesh.tris[:, i]] for i in range(3))
+    e1, e2 = b - a, c - a
+    s = origin - a
+    q = np.cross(s, e1)
+    t_num = np.einsum("ij,ij->i", e2, q)
+    first = np.full(len(dirs), np.nan)
+    last = np.full(len(dirs), np.nan)
+    for i, d in enumerate(dirs):
+        h = np.cross(d, e2)
+        det = np.einsum("ij,ij->i", e1, h)
+        ok = np.abs(det) > 1e-14
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+        u = np.einsum("ij,ij->i", s, h) * inv
+        v = (q @ d) * inv
+        t = t_num * inv
+        m = ok & (u >= -1e-9) & (v >= -1e-9) & (u + v <= 1 + 1e-9) & (t > 1e-9)
+        if m.any():
+            first[i], last[i] = t[m].min(), t[m].max()
+    return first, last
+
+
 def signed_volume(P: np.ndarray, tris: np.ndarray) -> float:
     a, b, c = P[tris[:, 0]], P[tris[:, 1]], P[tris[:, 2]]
     return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)

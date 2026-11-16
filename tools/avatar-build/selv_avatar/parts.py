@@ -24,6 +24,7 @@ class Material:
     roughness: float = 0.6
     metallic: float = 0.0
     double_sided: bool = False
+    alpha_blend: bool = False
     role: str = ""          # skin | hair | iris | sclera | lash | brow | cloth | base | accessory
 
 

@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 
 from . import geom
+from .face import brow_parts, lash_parts
 from .glb import GLB
 from .mhdata import MHData, find_data_root
 from .parts import Material, Part
@@ -22,7 +23,6 @@ from .rig import Rig, blend_weights, build_rig
 from .shapes import Measurer, ShapeBasis, build_shape_basis
 
 FORMAT_VERSION = 1
-LASH_GROUPS = ("helper-l-eyelashes-1", "helper-l-eyelashes-2", "helper-r-eyelashes-1", "helper-r-eyelashes-2")
 GUIDE_GROUPS = ("helper-tights", "helper-skirt", "helper-hair", "helper-l-eye", "helper-r-eye")
 
 
@@ -56,6 +56,7 @@ class Context:
                 "tights": lambda: self.group_tris("helper-tights"),
                 "skirt": lambda: self.group_tris("helper-skirt"),
                 "hairguide": lambda: self.group_tris("helper-hair"),
+                "hair": lambda: np.concatenate([self.head_tris(), self.group_tris("helper-hair")]),
                 "eye_l": lambda: self.group_tris("helper-l-eye"),
                 "eye_r": lambda: self.group_tris("helper-r-eye"),
             }[name]()
@@ -176,10 +177,9 @@ def core_parts(ctx: Context) -> list[Part]:
         body_part(ctx),
         direct_part(ctx, "Guide", GUIDE_GROUPS, Material("Guide", color=(0.5, 0.5, 0.5, 1)), "guide",
                     skinned=False, visible=False),
-        direct_part(ctx, "Lashes", LASH_GROUPS,
-                    Material("Lash", color=(0.05, 0.04, 0.04, 1), roughness=0.8, double_sided=True, role="lash"),
-                    "lashes"),
         *eye_parts(ctx),
+        *lash_parts(ctx),
+        *brow_parts(ctx),
     ]
 
 
@@ -224,7 +224,8 @@ def emit_part(glb: GLB, ctx: Context, part: Part, materials: dict, skin: int | N
     m = part.material
     if m.name not in materials:
         materials[m.name] = glb.material(m.name, color=m.color, roughness=m.roughness, metallic=m.metallic,
-                                         double_sided=m.double_sided, extras={"role": m.role})
+                                         double_sided=m.double_sided, alpha_mode="BLEND" if m.alpha_blend else None,
+                                         extras={"role": m.role})
     colors = part.colors
     if colors is not None and colors.shape[1] == 3:
         colors = np.concatenate([colors, np.ones((len(colors), 1))], axis=1)

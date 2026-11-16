@@ -193,6 +193,10 @@ def build_shape_basis(mh: MHData, measurer_factory) -> ShapeBasis:
     for label, mix in (("FeatA", (1, 0, 0)), ("FeatB", (0, 1, 0)), ("FeatC", (0, 0, 1))):
         raw[label] = mac(ethnic=mix) - neutral
 
+    # A cross term that turns out to be all zeros (stature is the same target for
+    # both genders) is dead weight in the file and a slot in every shader.
+    raw = {name: d for name, d in raw.items() if np.abs(d).max() > 1e-7}
+
     for name in raw:
         if name in CONTRACT_NAMES:
             continue
