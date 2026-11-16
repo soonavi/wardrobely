@@ -213,6 +213,9 @@ export class HumanRig {
   private bodyMhid: Uint32Array | null = null;
   private bodyIndex0: ArrayLike<number> | null = null;
   private maskKey = "";
+  private readonly ownedMaterials = new Set<THREE.Material>();
+  /** Geometries this instance copied and therefore must free. */
+  private readonly ownedGeometries = new Set<THREE.BufferGeometry>();
 
   /**
    * @param root A glTF scene this rig may mutate. Clone the loader's cached
@@ -241,6 +244,7 @@ export class HumanRig {
         // (Bound parts are copied later, on first show - an avatar wears one
         // hairstyle and a few garments, not all of them.)
         mesh.geometry = mesh.geometry.clone();
+        this.ownedGeometries.add(mesh.geometry);
         const mhid = attributeAsUint(mhidAttr, 1);
         for (let i = 0; i < mhid.length; i++) if (mhid[i] + 1 > basisSize) basisSize = mhid[i] + 1;
         this.direct.push({ mesh, mhid });
@@ -400,6 +404,7 @@ export class HumanRig {
     own.deleteAttribute("_bindw");
     if (weldAttr) own.deleteAttribute("_weld");
     mesh.geometry = own;
+    this.ownedGeometries.add(own);
     const part: SurfacePart = { mesh, ids, bary, local, weld, worldOffset, stale: true };
     this.surface.set(name, part);
     return part;
@@ -510,21 +515,29 @@ export class HumanRig {
       if (!d || d.length !== j.length) continue;
       for (let i = 0; i < j.length; i++) j[i] += w * d[i];
     }
-    // Inverse bind matrices describe the bind pose, so compute them with every
-    // bone unrotated, then put the pose back.
-    const saved = this.bones.map((b) => b.quaternion.clone());
     this.bones.forEach((bone, i) => {
       const parent = this.boneParent[i];
       const px = parent >= 0 ? j[parent * 3] : 0, py = parent >= 0 ? j[parent * 3 + 1] : 0, pz = parent >= 0 ? j[parent * 3 + 2] : 0;
       bone.position.set(j[i * 3] - px, j[i * 3 + 1] - py, j[i * 3 + 2] - pz);
-      bone.quaternion.identity();
     });
-    const savedY = this.root.position.y;
-    this.root.position.y = 0;
-    this.root.updateMatrixWorld(true);
-    for (const sk of this.skeletons) sk.calculateInverses();
-    this.bones.forEach((bone, i) => bone.quaternion.copy(saved[i]));
-    this.root.position.y = savedY;
+    // Inverse bind matrices, written directly. Every bone rests unrotated, so
+    // in the rig's own space a joint's bind matrix is a pure translation and
+    // its inverse is the negated joint position.
+    //
+    // Deliberately NOT `skeleton.calculateInverses()`: that reads each bone's
+    // world matrix, which includes whatever the rig is parented under. The
+    // try-on screen keeps the avatar on a turntable, so a reshape mid-spin
+    // baked the turntable's current angle into the bind pose and the body came
+    // out skinned against a skeleton rotated relative to it.
+    const index = new Map<THREE.Bone, number>();
+    this.bones.forEach((bone, i) => index.set(bone, i));
+    for (const sk of this.skeletons) {
+      sk.bones.forEach((bone, k) => {
+        const i = index.get(bone as THREE.Bone);
+        if (i === undefined) return;
+        sk.boneInverses[k].makeTranslation(-j[i * 3], -j[i * 3 + 1], -j[i * 3 + 2]);
+      });
+    }
   }
 
   /** Keep the soles on y = 0 whatever the shape did to leg length. */
@@ -667,12 +680,14 @@ export class HumanRig {
       if (perPartKinds.includes(kind)) {
         mesh.material = src.clone();
         mesh.material.userData = { ...src.userData };
+        this.ownedMaterials.add(mesh.material);
         smoothShade(mesh);
       } else {
         let own = shared.get(src);
         if (!own) {
           own = src.clone();
           own.userData = { ...src.userData };
+          this.ownedMaterials.add(own);
           shared.set(src, own);
         }
         mesh.material = own;
@@ -681,18 +696,16 @@ export class HumanRig {
     }
   }
 
+  /**
+   * Free what this instance copied. Geometry of parts that were never shown
+   * still belongs to the loader's cached scene and is left alone - disposing
+   * it would blank the same part on every other avatar on screen.
+   */
   dispose(): void {
-    const seen = new Set<THREE.Material>();
-    for (const mesh of this.parts.values()) {
-      mesh.geometry.dispose();
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const m of mats) {
-        if (!seen.has(m)) {
-          seen.add(m);
-          m.dispose();
-        }
-      }
-    }
+    for (const g of this.ownedGeometries) g.dispose();
+    this.ownedGeometries.clear();
+    for (const m of this.ownedMaterials) m.dispose();
+    this.ownedMaterials.clear();
     for (const sk of this.skeletons) sk.dispose();
   }
 }

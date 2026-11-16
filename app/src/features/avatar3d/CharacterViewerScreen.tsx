@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   PixelRatio,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -9,11 +10,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { Canvas, useFrame, useThree } from "@react-three/fiber/native";
+import { Canvas, useFrame, useThree } from "./r3f";
 import { ContactShadows } from "@react-three/drei/native";
 import * as THREE from "three";
-import { useRouter } from "expo-router";
-import { CharacterAvatar } from "./CharacterAvatar";
+import { useFocusEffect, useRouter } from "expo-router";
+import { HumanAvatar } from "./human/HumanAvatar";
+import { useAuthStore } from "../../lib/stores/useAuthStore";
 import { getMyAvatar } from "../../lib/api/avatars";
 import { mergeCustomization, type Customization } from "../creator/customization";
 import { colors, fonts, radius, spacing, type } from "../../lib/theme";
@@ -52,7 +54,9 @@ import { colors, fonts, radius, spacing, type } from "../../lib/theme";
 // consistent across both screens.
 // ---------------------------------------------------------------------------
 const TARGET_HEIGHT_UNITS = 1.7;
-const CAMERA_BASE_DISTANCE = TARGET_HEIGHT_UNITS * 1.95;
+// Full-screen canvas with a title over the top and a button over the bottom:
+// leave room for both, and for a tall character.
+const CAMERA_BASE_DISTANCE = TARGET_HEIGHT_UNITS * 2.6;
 const CAMERA_START_Y = TARGET_HEIGHT_UNITS * 0.62;
 const CAMERA_TARGET_Y = TARGET_HEIGHT_UNITS * 0.5;
 const GROUND_RADIUS = TARGET_HEIGHT_UNITS * 0.62;
@@ -235,14 +239,24 @@ function useMyCustomization() {
     setCustomization(populated ? mergeCustomization(raw as Partial<Customization>) : null);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload whenever the screen regains focus, not just on mount: this screen
+  // stays mounted behind the character creator, and coming back from "Edit
+  // your character" has to show the character that was just saved.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   return { customization, hasCustomization, loading, error, reload: load };
 }
 
 export function CharacterViewerScreen() {
+  const profile = useAuthStore((st) => st.profile);
+  const measurements = useMemo(
+    () => ({ heightCm: profile?.height_cm ?? null, weightKg: profile?.weight_kg ?? null }),
+    [profile?.height_cm, profile?.weight_kg]
+  );
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { customization, hasCustomization, loading, error, reload } = useMyCustomization();
@@ -291,7 +305,11 @@ export function CharacterViewerScreen() {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = TONE_MAPPING_EXPOSURE;
-    gl.setPixelRatio(Math.min(PixelRatio.get(), MAX_DEVICE_PIXEL_RATIO));
+    // Web only: on native react-three-fiber already matches the device's
+    // pixel ratio, and overriding it shrinks the viewport on 3x screens.
+    if (Platform.OS === "web") {
+      gl.setPixelRatio(Math.min(PixelRatio.get(), MAX_DEVICE_PIXEL_RATIO));
+    }
   }, []);
 
   // --- Resolved-before-3D states ---------------------------------------
@@ -401,7 +419,7 @@ export function CharacterViewerScreen() {
             />
 
             <RotatingGroup rotationRef={rotationRef} isDraggingRef={isDraggingRef}>
-              <CharacterAvatar customization={customization} />
+              <HumanAvatar customization={customization} measurements={measurements} />
             </RotatingGroup>
 
             <CameraRig zoomRef={zoomRef} />

@@ -534,12 +534,14 @@ describe("garment and product paths produce the same shape", () => {
   // CharacterAvatar reads one `GarmentVisual` regardless of whether the item
   // came from the wardrobe or the Shop; a missing key on one path would only
   // show up at render time on a device.
-  it("emits exactly {color, long, name, textureUrl} from both entry points", () => {
+  it("emits exactly {category, color, long, name, textureUrl} from both entry points", () => {
     const fromGarment = Object.keys(garmentToVisual(garment())).sort();
     const fromProduct = Object.keys(productToVisual(product())).sort();
 
     expect(fromGarment).toEqual(fromProduct);
-    expect(fromGarment).toEqual(["color", "long", "name", "textureUrl"]);
+    // `category` joined the shape when the human avatar arrived: it is what
+    // picks a garment's silhouette.
+    expect(fromGarment).toEqual(["category", "color", "long", "name", "textureUrl"]);
   });
 
   it("always produces a color, whatever the input", () => {

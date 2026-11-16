@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Linking,
   Modal,
   PixelRatio,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,13 +13,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Alert } from "../../lib/alert";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { Canvas, useFrame, useThree } from "@react-three/fiber/native";
+import { Canvas, useFrame, useThree } from "./r3f";
 import { ContactShadows } from "@react-three/drei/native";
 import * as THREE from "three";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { CharacterAvatar, type EquippedGarments } from "./CharacterAvatar";
+import type { EquippedGarments } from "./CharacterAvatar";
+import { HumanAvatar } from "./human/HumanAvatar";
 import { getMyAvatar } from "../../lib/api/avatars";
 import { mergeCustomization, type Customization } from "../creator/customization";
 import { listGarments } from "../../lib/api/garments";
@@ -120,7 +122,9 @@ import { colors, fonts, radius, spacing, type } from "../../lib/theme";
 // head or feet.
 // ---------------------------------------------------------------------------
 const TARGET_HEIGHT_UNITS = 1.7;
-const CAMERA_BASE_DISTANCE = TARGET_HEIGHT_UNITS * 2.3;
+// The canvas is a bit over half the screen, with the title over its top and
+// the slot chips over its bottom, so the figure needs room above and below.
+const CAMERA_BASE_DISTANCE = TARGET_HEIGHT_UNITS * 3.05;
 const CAMERA_START_Y = TARGET_HEIGHT_UNITS * 0.6;
 const CAMERA_TARGET_Y = TARGET_HEIGHT_UNITS * 0.48;
 const GROUND_RADIUS = TARGET_HEIGHT_UNITS * 0.62;
@@ -447,9 +451,14 @@ function useMyCustomization() {
     setCustomization(populated ? mergeCustomization(raw as Partial<Customization>) : null);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload whenever the screen regains focus, not just on mount: this screen
+  // stays mounted behind the character creator, and coming back from "Edit
+  // your character" has to show the character that was just saved.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   return { customization, hasCustomization, loading, error, reload: load };
 }
@@ -690,7 +699,12 @@ export function CharacterTryOnScreen() {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = TONE_MAPPING_EXPOSURE;
-    gl.setPixelRatio(Math.min(PixelRatio.get(), MAX_DEVICE_PIXEL_RATIO));
+    // Web only. On native, react-three-fiber already sizes the drawing buffer
+    // to the device's pixel ratio; overriding it there shrinks the viewport
+    // into a corner of the surface on 3x screens.
+    if (Platform.OS === "web") {
+      gl.setPixelRatio(Math.min(PixelRatio.get(), MAX_DEVICE_PIXEL_RATIO));
+    }
   }, []);
 
   // --- Equip / unequip ---------------------------------------------------
@@ -1062,6 +1076,12 @@ export function CharacterTryOnScreen() {
       accessory: equippedAccessory ? equippedVisual(equippedAccessory) : undefined,
     }),
     [equippedTop, equippedBottom, equippedShoes, equippedAccessory]
+  );
+
+  // Real height and weight from the profile, when entered, shape the avatar.
+  const measurements = useMemo(
+    () => ({ heightCm: profile?.height_cm ?? null, weightKg: profile?.weight_kg ?? null }),
+    [profile?.height_cm, profile?.weight_kg]
   );
 
   const hasAnyEquipped = !!(
@@ -1524,7 +1544,11 @@ export function CharacterTryOnScreen() {
             />
 
             <RotatingGroup rotationRef={rotationRef} isDraggingRef={isDraggingRef}>
-              <CharacterAvatar customization={customization} equipped={equippedProp} />
+              <HumanAvatar
+                customization={customization}
+                equipped={equippedProp}
+                measurements={measurements}
+              />
             </RotatingGroup>
 
             <CameraRig zoomRef={zoomRef} />

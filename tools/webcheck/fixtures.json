@@ -1,0 +1,81 @@
+{
+  "tables": {
+    "profiles": [
+      {
+        "id": "$UID",
+        "display_name": "Tester",
+        "body_type": null,
+        "height_cm": null,
+        "weight_kg": null,
+        "build": "average",
+        "age_verified_on": "2026-01-01",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "avatars": [
+      {
+        "id": "aaaaaaaa-0000-4000-8000-000000000001",
+        "user_id": "$UID",
+        "height_cm": null,
+        "weight_kg": null,
+        "shape_params": null,
+        "customization": {
+          "skinTone": "#C68A5F",
+          "faceShape": "oval",
+          "eyeColor": "#5B3A21",
+          "eyeShape": "almond",
+          "eyebrows": "natural",
+          "eyebrowColor": "#3B2A1F",
+          "hairStyle": "bob",
+          "hairColor": "#3B2A1F",
+          "facialHair": "none",
+          "facialHairColor": "#3B2A1F",
+          "bodyType": "average",
+          "body": { "frame": -0.7, "height": 0, "volume": 0.1, "chest": 0.1, "waist": -0.1, "hip": 0.2, "shoulders": 0, "muscle": 0 },
+          "accessories": []
+        },
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "garments": [
+      { "id": "g-0001", "user_id": "$UID", "image_url": null, "image_path": null, "category": "top", "name": "White tee", "color": "white", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-01T00:00:00Z" },
+      { "id": "g-0002", "user_id": "$UID", "image_url": null, "image_path": null, "category": "top", "name": "Olive hoodie", "color": "olive", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-02T00:00:00Z" },
+      { "id": "g-0003", "user_id": "$UID", "image_url": null, "image_path": null, "category": "bottom", "name": "Blue jeans", "color": "blue", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-03T00:00:00Z" },
+      { "id": "g-0004", "user_id": "$UID", "image_url": null, "image_path": null, "category": "bottom", "name": "Black midi skirt", "color": "black", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-04T00:00:00Z" },
+      { "id": "g-0005", "user_id": "$UID", "image_url": null, "image_path": null, "category": "dress", "name": "Red midi dress", "color": "red", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-05T00:00:00Z" },
+      { "id": "g-0006", "user_id": "$UID", "image_url": null, "image_path": null, "category": "outerwear", "name": "Camel coat", "color": "camel", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-06T00:00:00Z" },
+      { "id": "g-0007", "user_id": "$UID", "image_url": null, "image_path": null, "category": "shoes", "name": "White sneakers", "color": "white", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-07T00:00:00Z" },
+      { "id": "g-0008", "user_id": "$UID", "image_url": null, "image_path": null, "category": "shoes", "name": "Black boots", "color": "black", "brand": null, "tags": [], "template_id": null, "created_at": "2026-02-08T00:00:00Z" }
+    ],
+    "outfits": [],
+    "outfit_items": [],
+    "products": [],
+    "brands": [],
+    "wishlist_items": [],
+    "assistant_preferences": []
+  },
+  "rpc": {},
+  "scenarios": {
+    "returning": [
+      { "go": "/", "wait": 3500, "shot": "01-wardrobe" },
+      { "go": "/tryon", "wait": 7000, "shot": "02-tryon-base" },
+      { "tap": "White tee", "wait": 1500 },
+      { "tap": "Blue jeans", "wait": 1500 },
+      { "tap": "White sneakers", "wait": 2500, "shot": "03-tryon-outfit" },
+      { "drag": { "dx": 110, "y": 260 }, "shot": "04-tryon-turned" },
+      { "go": "/character", "wait": 6000, "shot": "05-viewer" },
+      { "go": "/create-avatar", "wait": 6500, "shot": "06-creator-body" },
+      { "tap": "Hair", "wait": 2200, "shot": "07-creator-hair" },
+      { "tap": "Face", "wait": 2200, "shot": "08-creator-face" },
+      { "go": "/profile", "wait": 3000, "shot": "09-profile" },
+      { "go": "/outfits", "wait": 2500, "shot": "10-outfits" },
+      { "go": "/shop", "wait": 2500, "shot": "11-shop" }
+    ],
+    "new-user": [
+      { "go": "/", "wait": 7000, "shot": "01-first-screen" },
+      { "tap": "Skin", "wait": 2200, "shot": "02-onboarding-skin" }
+    ]
+  }
+}

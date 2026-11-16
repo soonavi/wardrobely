@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Pressable,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Alert } from "../../lib/alert";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { createGarment } from "../../lib/api/garments";

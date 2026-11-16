@@ -239,6 +239,7 @@ describe("mergeCustomization", () => {
       facialHair: "goatee",
       facialHairColor: "#1B1712",
       bodyType: "athletic",
+      body: { frame: 0.4, height: -0.5, volume: 0.25, chest: 0.1, waist: -0.2, hip: 0.3, shoulders: 0.6, muscle: 0.7 },
       accessories: ["glasses", "earrings"],
     };
 

@@ -7,6 +7,7 @@ import type {
   EyeShape,
   FaceShape,
 } from "../creator/customization";
+import { DEFAULT_CUSTOMIZATION } from "../creator/customization";
 import {
   acquireGarmentTexture,
   releaseGarmentTexture,
@@ -73,6 +74,8 @@ export interface GarmentVisual {
   long?: boolean;
   /** Remote image of the actual garment, planar-projected onto the slot's front. */
   textureUrl?: string;
+  /** Garment category (top, outerwear, dress, ...); the human avatar picks a silhouette from it. */
+  category?: string;
 }
 
 /**
@@ -1699,6 +1702,8 @@ export function CharacterAvatar({ customization, equipped, animate = true }: Cha
           facialHairColor,
           bodyType,
           accessories,
+          // The primitive avatar has no sliders; the preset in `bodyType` is all it reads.
+          body: DEFAULT_CUSTOMIZATION.body,
         },
         equipped
       ),

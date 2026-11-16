@@ -31,5 +31,18 @@ module.exports = {
   // just out of test discovery.
   modulePathIgnorePatterns: ["<rootDir>/supabase/"],
 
+  // Metro bundles .glb as an asset and hands back an id; Jest would otherwise
+  // try to parse 13 MB of binary glTF as JavaScript.
+  moduleNameMapper: {
+    "\\.(glb|gltf)$": "<rootDir>/jest/assetStub.js",
+  },
+
+  // jest-expo's own allow-list, plus three's `examples/jsm` (ES modules only):
+  // the avatar tests load the real .glb through the real GLTFLoader.
+  transformIgnorePatterns: [
+    "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|three/examples/jsm))",
+    "/node_modules/react-native-reanimated/plugin/",
+  ],
+
   clearMocks: true,
 };

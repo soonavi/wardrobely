@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AvatarPreview } from "./AvatarPreview";
+import Slider from "@react-native-community/slider";
+import { HumanStage, type StageFraming } from "../avatar3d/human/HumanStage";
 import {
   ACCESSORIES,
   BODY_TYPES,
@@ -22,7 +23,9 @@ import {
   HAIR_STYLES,
   SKIN_TONES,
   DEFAULT_CUSTOMIZATION,
+  bodyAdjustForType,
   mergeCustomization,
+  type BodyAdjust,
   type BodyType,
   type ChipOption,
   type Customization,
@@ -57,6 +60,36 @@ const CATEGORIES: { id: CategoryId; label: string }[] = [
   { id: "hair", label: "Hair" },
   { id: "facialHair", label: "Facial hair" },
   { id: "extras", label: "Extras" },
+];
+
+/** Where the live preview looks while each tab is open. */
+const STAGE_FRAMING: Record<CategoryId, StageFraming> = {
+  body: "full",
+  skin: "bust",
+  face: "face",
+  eyes: "face",
+  brows: "face",
+  hair: "bust",
+  facialHair: "face",
+  extras: "face",
+};
+
+const BODY_SLIDERS: {
+  key: keyof BodyAdjust;
+  label: string;
+  low: string;
+  high: string;
+  min: number;
+  max: number;
+}[] = [
+  { key: "frame", label: "Frame", low: "Feminine", high: "Masculine", min: -1, max: 1 },
+  { key: "height", label: "Height", low: "Shorter", high: "Taller", min: -2, max: 2 },
+  { key: "volume", label: "Build", low: "Slimmer", high: "Fuller", min: -1, max: 2.5 },
+  { key: "chest", label: "Chest", low: "Smaller", high: "Fuller", min: -1, max: 1.5 },
+  { key: "waist", label: "Waist", low: "Narrower", high: "Wider", min: -1, max: 1.5 },
+  { key: "hip", label: "Hips", low: "Narrower", high: "Wider", min: -1, max: 1.5 },
+  { key: "shoulders", label: "Shoulders", low: "Narrower", high: "Broader", min: -1, max: 1 },
+  { key: "muscle", label: "Tone", low: "Softer", high: "More defined", min: -1, max: 1 },
 ];
 
 export interface CharacterCreatorScreenProps {
@@ -147,6 +180,7 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
   const insets = useSafeAreaInsets();
   const session = useAuthStore((s) => s.session);
   const setProfile = useAuthStore((s) => s.setProfile);
+  const profile = useAuthStore((s) => s.profile);
   const userId = session?.user.id;
 
   const [customization, setCustomization] = useState<Customization>(DEFAULT_CUSTOMIZATION);
@@ -214,6 +248,19 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
     setCustomization((prev) => ({ ...prev, ...patch }));
   }
 
+  function setBody(key: keyof BodyAdjust, value: number) {
+    setCustomization((prev) => ({ ...prev, body: { ...prev.body, [key]: value } }));
+  }
+
+  // Real height and weight, once entered in the profile, drive the avatar's
+  // size; the two sliders they replace are shown locked rather than hidden so
+  // it is clear why they stopped responding.
+  const measurements = useMemo(
+    () => ({ heightCm: profile?.height_cm ?? null, weightKg: profile?.weight_kg ?? null }),
+    [profile?.height_cm, profile?.weight_kg]
+  );
+  const usingMeasurements = !!(profile?.height_cm && profile?.weight_kg);
+
   function toggleAccessory(id: string) {
     if (id === "none") {
       update({ accessories: [] });
@@ -274,11 +321,53 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
     switch (activeCategory) {
       case "body":
         return (
-          <ChipRow
-            options={bodyTypeChips}
-            selected={customization.bodyType}
-            onSelect={(id) => update({ bodyType: id as BodyType })}
-          />
+          <View>
+            <Text style={styles.sliderGroupLabel}>Start from a build</Text>
+            <ChipRow
+              options={bodyTypeChips}
+              selected={customization.bodyType}
+              onSelect={(id) =>
+                update({
+                  bodyType: id as BodyType,
+                  // A preset moves the build sliders; your frame and height stay yours.
+                  body: bodyAdjustForType(id as BodyType, customization.body),
+                })
+              }
+            />
+            <Text style={styles.sliderGroupLabel}>Then make it yours</Text>
+            {BODY_SLIDERS.map((def) => {
+              const locked = usingMeasurements && (def.key === "height" || def.key === "volume");
+              return (
+                <View key={def.key} style={[styles.sliderRow, locked && styles.sliderRowLocked]}>
+                  <View style={styles.sliderHeader}>
+                    <Text style={styles.sliderLabel}>{def.label}</Text>
+                    <Text style={styles.sliderEnds}>
+                      {def.low} · {def.high}
+                    </Text>
+                  </View>
+                  <Slider
+                    minimumValue={def.min}
+                    maximumValue={def.max}
+                    step={0.05}
+                    value={customization.body[def.key]}
+                    disabled={locked}
+                    onValueChange={(v: number) => setBody(def.key, v)}
+                    minimumTrackTintColor={colors.accent}
+                    maximumTrackTintColor={colors.border}
+                    thumbTintColor={colors.accent}
+                    accessibilityLabel={def.label}
+                  />
+                </View>
+              );
+            })}
+            {usingMeasurements && (
+              <Text style={styles.sliderNote}>
+                Height and build follow the measurements in your profile
+                {profile?.height_cm ? ` (${Math.round(profile.height_cm)} cm` : " ("}
+                {profile?.weight_kg ? `, ${Math.round(profile.weight_kg)} kg)` : ")"}. Change them there.
+              </Text>
+            )}
+          </View>
         );
       case "skin":
         return (
@@ -451,7 +540,13 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
         </Text>
 
         <View style={styles.previewWrap}>
-          <AvatarPreview customization={customization} size={220} />
+          <HumanStage
+            customization={customization}
+            measurements={measurements}
+            framing={STAGE_FRAMING[activeCategory]}
+            style={styles.stage}
+          />
+          <Text style={styles.previewHint}>Drag to turn</Text>
         </View>
 
         <ScrollView
@@ -495,24 +590,6 @@ export function CharacterCreatorScreen({ onboarding = false }: CharacterCreatorS
             </Text>
           )}
         </Pressable>
-
-        {/*
-          Not shown during onboarding (there's nothing saved to preview yet
-          on a brand-new account) — this jumps to the fully-3D, procedurally-
-          built rendering of the SAME customization the 2D preview above
-          shows live (see src/features/avatar3d/CharacterAvatar.tsx). It
-          reads whatever was last saved via getMyAvatar, so unsaved edits
-          made since opening this screen won't show there until Save.
-        */}
-        {!onboarding && (
-          <Pressable
-            style={styles.preview3dButton}
-            onPress={() => router.push("/character")}
-            accessibilityRole="button"
-          >
-            <Text style={styles.preview3dButtonText}>Preview in 3D →</Text>
-          </Pressable>
-        )}
       </ScrollView>
     </View>
   );
@@ -566,14 +643,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   previewWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.bg,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: spacing.md,
+    overflow: "hidden",
     marginBottom: spacing.md,
+  },
+  stage: {
+    height: 380,
+    width: "100%",
+  },
+  previewHint: {
+    position: "absolute",
+    bottom: spacing.sm,
+    alignSelf: "center",
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.faint,
+  },
+  sliderGroupLabel: {
+    fontFamily: fonts.displayMed,
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  sliderRow: {
+    marginTop: spacing.sm,
+  },
+  sliderRowLocked: {
+    opacity: 0.4,
+  },
+  sliderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  sliderLabel: {
+    fontFamily: fonts.displayMed,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  sliderEnds: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.faint,
+  },
+  sliderNote: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: spacing.md,
   },
   tabsRow: {
     gap: spacing.xs,
@@ -702,20 +823,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: colors.ink,
     fontSize: 16,
-    fontWeight: "700",
-  },
-  preview3dButton: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    alignItems: "center",
-    marginTop: spacing.sm,
-  },
-  preview3dButtonText: {
-    color: colors.accent,
-    fontSize: 15,
     fontWeight: "700",
   },
 });

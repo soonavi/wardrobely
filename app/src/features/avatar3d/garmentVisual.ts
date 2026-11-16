@@ -259,6 +259,8 @@ export interface ResolvedGarmentVisual {
    * hands it to three's TextureLoader as-is and cannot sign a storage path.
    */
   textureUrl?: string;
+  /** The garment's category, so the human avatar can pick a silhouette for it. */
+  category?: GarmentCategory;
 }
 
 /**
@@ -298,6 +300,7 @@ export function garmentToVisual(garment: GarmentRow): ResolvedGarmentVisual {
     name: garment.name ?? undefined,
     long: garment.category === "dress",
     textureUrl: externalImageUrl(garment),
+    category: garment.category,
   };
 }
 
@@ -344,6 +347,7 @@ export function productToVisual(product: ProductWithBrand): ResolvedGarmentVisua
     }),
     name: product.name,
     long: product.category === "dress",
+    category: product.category,
     textureUrl:
       usableTextureUrl(product.tryon_image_url) ??
       usableTextureUrl(product.image_url),

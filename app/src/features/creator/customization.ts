@@ -35,6 +35,47 @@ export type BodyType = "slim" | "average" | "athletic" | "curvy" | "broad";
 /** Wearable extras layered on top of the character preview. */
 export type AccessoryId = "none" | "glasses" | "earrings";
 
+/**
+ * Body sliders. Every value is relative to the average for the chosen frame
+ * and 0 means "leave it alone": one unit is about 12 cm of height, 7 BMI
+ * points of volume, or 9 cm of girth (see avatar3d/human/humanShape.ts).
+ * `frame` runs -1 (feminine) .. +1 (masculine).
+ */
+export type BodyAdjust = {
+  frame: number;
+  height: number;
+  volume: number;
+  chest: number;
+  waist: number;
+  hip: number;
+  shoulders: number;
+  muscle: number;
+};
+
+export const BODY_ADJUST_KEYS = [
+  "frame",
+  "height",
+  "volume",
+  "chest",
+  "waist",
+  "hip",
+  "shoulders",
+  "muscle",
+] as const satisfies readonly (keyof BodyAdjust)[];
+
+/** What each build preset means on the sliders. Frame and height are yours to keep. */
+export const BODY_TYPE_ADJUST: Record<BodyType, Omit<BodyAdjust, "frame" | "height">> = {
+  slim: { volume: -0.45, chest: -0.2, waist: -0.2, hip: -0.2, shoulders: -0.1, muscle: 0 },
+  average: { volume: 0, chest: 0, waist: 0, hip: 0, shoulders: 0, muscle: 0 },
+  athletic: { volume: -0.05, chest: 0.2, waist: -0.35, hip: -0.1, shoulders: 0.45, muscle: 0.8 },
+  curvy: { volume: 0.3, chest: 0.4, waist: -0.35, hip: 0.75, shoulders: 0, muscle: -0.1 },
+  broad: { volume: 0.35, chest: 0.5, waist: 0.2, hip: 0.1, shoulders: 0.9, muscle: 0.25 },
+};
+
+export function bodyAdjustForType(type: BodyType, keep?: Partial<BodyAdjust>): BodyAdjust {
+  return { frame: keep?.frame ?? 0, height: keep?.height ?? 0, ...BODY_TYPE_ADJUST[type] };
+}
+
 /** All appearance choices for a user's character. */
 export type Customization = {
   skinTone: string;
@@ -48,6 +89,8 @@ export type Customization = {
   facialHair: FacialHairStyle;
   facialHairColor: string;
   bodyType: BodyType;
+  /** The body sliders. `bodyType` is the preset they started from. */
+  body: BodyAdjust;
   accessories: string[];
 };
 
@@ -174,6 +217,7 @@ export const DEFAULT_CUSTOMIZATION: Customization = {
   facialHair: "none",
   facialHairColor: HAIR_COLORS[2].hex,
   bodyType: "average",
+  body: { frame: 0, height: 0, volume: 0, chest: 0, waist: 0, hip: 0, shoulders: 0, muscle: 0 },
   accessories: [],
 };
 
@@ -187,6 +231,20 @@ export function mergeCustomization(
   partial?: Partial<Customization> | null
 ): Customization {
   const p = partial ?? {};
+  const bodyType = p.bodyType ?? DEFAULT_CUSTOMIZATION.bodyType;
+  // A character saved before the sliders existed has only a preset; give it
+  // that preset's sliders so it keeps the build it was saved with.
+  const storedBody = p.body && typeof p.body === "object" ? (p.body as Partial<BodyAdjust>) : null;
+  const presetBody = bodyAdjustForType(
+    bodyType in BODY_TYPE_ADJUST ? bodyType : DEFAULT_CUSTOMIZATION.bodyType
+  );
+  const body = { ...presetBody };
+  if (storedBody) {
+    for (const key of BODY_ADJUST_KEYS) {
+      const v = storedBody[key];
+      if (typeof v === "number" && Number.isFinite(v)) body[key] = Math.max(-2.5, Math.min(2.5, v));
+    }
+  }
   return {
     skinTone: typeof p.skinTone === "string" ? p.skinTone : DEFAULT_CUSTOMIZATION.skinTone,
     faceShape: p.faceShape ?? DEFAULT_CUSTOMIZATION.faceShape,
@@ -202,7 +260,8 @@ export function mergeCustomization(
       typeof p.facialHairColor === "string"
         ? p.facialHairColor
         : DEFAULT_CUSTOMIZATION.facialHairColor,
-    bodyType: p.bodyType ?? DEFAULT_CUSTOMIZATION.bodyType,
+    bodyType,
+    body,
     // Copied, not aliased. Every other field here is a primitive, so returning
     // the default by value is safe — but handing back DEFAULT_CUSTOMIZATION's
     // own array means one in-place push/splice by any caller permanently

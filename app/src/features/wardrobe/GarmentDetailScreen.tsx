@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Pressable,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Alert } from "../../lib/alert";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { deleteGarment, getGarment, updateGarment } from "../../lib/api/garments";
 import { getProduct, type ProductWithBrand } from "../../lib/api/shop";
