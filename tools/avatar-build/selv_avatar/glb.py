@@ -18,6 +18,16 @@ _TYPES = {1: "SCALAR", 2: "VEC2", 3: "VEC3", 4: "VEC4", 16: "MAT4"}
 _DTYPES = {FLOAT: np.float32, UBYTE: np.uint8, USHORT: np.uint16, UINT: np.uint32}
 
 
+def _quantize_weights(w: np.ndarray) -> np.ndarray:
+    """Skin weights as bytes that still sum to exactly 255 per vertex (glTF
+    requires normalised weights to sum to one after dequantisation)."""
+    w = np.asarray(w, dtype=np.float64)
+    q = np.floor(w * 255.0 + 0.5).astype(np.int64)
+    fix = 255 - q.sum(axis=1)
+    q[np.arange(len(q)), np.argmax(q, axis=1)] += fix
+    return np.clip(q, 0, 255)
+
+
 class GLB:
     def __init__(self, generator: str = "selv-avatar-build"):
         self.bin = bytearray()
@@ -135,7 +145,7 @@ class GLB:
         colors: np.ndarray | None = None,
         joints: np.ndarray | None = None,
         weights: np.ndarray | None = None,
-        custom: dict[str, np.ndarray] | None = None,
+        custom: dict | None = None,
         targets: dict[str, np.ndarray] | None = None,
         extras: dict | None = None,
     ) -> int:
@@ -145,14 +155,18 @@ class GLB:
         if uvs is not None:
             attrs["TEXCOORD_0"] = self.accessor(uvs)
         if colors is not None:
-            attrs["COLOR_0"] = self.accessor(colors)
+            # 8-bit normalised colour: a quarter of the bytes of float, and
+            # tints do not need more than 256 levels.
+            c8 = np.clip(np.round(np.asarray(colors, dtype=np.float64) * 255.0), 0, 255)
+            attrs["COLOR_0"] = self.accessor(c8, component=UBYTE, normalized=True)
         if joints is not None:
             attrs["JOINTS_0"] = self.accessor(joints, component=UBYTE)
-            attrs["WEIGHTS_0"] = self.accessor(weights)
-        for key, arr in (custom or {}).items():
+            attrs["WEIGHTS_0"] = self.accessor(_quantize_weights(weights), component=UBYTE, normalized=True)
+        for key, spec in (custom or {}).items():
             if not key.startswith("_"):
                 raise ValueError("custom attribute names must start with '_'")
-            attrs[key] = self.accessor(arr)
+            arr, comp, norm = spec if isinstance(spec, tuple) else (spec, FLOAT, False)
+            attrs[key] = self.accessor(arr, component=comp, normalized=norm)
         idx = np.asarray(indices).reshape(-1)
         comp = USHORT if len(positions) <= 65535 else UINT
         prim: dict = {

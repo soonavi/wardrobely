@@ -2,7 +2,7 @@
 // viewer. Bundled with esbuild (three stays external and comes from the
 // viewer's import map), so a preview render exercises the shipped code path:
 // CPU shape baking, surface-bound parts, skeleton re-seating, posing.
-import { HumanRig } from "../../../app/src/features/avatar3d/human/humanRig";
+import { HumanRig, OPTIONAL_KINDS } from "../../../app/src/features/avatar3d/human/humanRig";
 import { DEFAULT_HUMAN_SHAPE, resolveShapeWeights, type HumanShape } from "../../../app/src/features/avatar3d/human/humanShape";
 import { REST_POSE, STANCE_POSE } from "../../../app/src/features/avatar3d/human/humanPose";
 
@@ -34,13 +34,17 @@ export function applyShot(_root: any, shot: Shot, THREE: any) {
   const matches = (name: string, list: string[]) =>
     list.some((s) => s === name || (s.startsWith("kind:") && kindOf(name) === s.slice(5)) || (s.endsWith("*") && name.startsWith(s.slice(0, -1))));
 
+  const worn: string[] = [];
   for (const name of r.parts.keys()) {
     const info = r.partInfo.get(name);
     let visible = info ? info.visible !== false : true;
-    if (shot.show) visible = matches(name, shot.show) || (visible && !["hair", "garment", "brows", "beard", "accessory", "base"].includes(kindOf(name)));
+    if (shot.show && OPTIONAL_KINDS.includes(kindOf(name) as any)) visible = matches(name, shot.show);
     if (shot.hide && matches(name, shot.hide)) visible = false;
-    r.setPartVisible(name, visible);
+    if (OPTIONAL_KINDS.includes(kindOf(name) as any)) {
+      if (visible) worn.push(name);
+    } else r.setPartVisible(name, visible);
   }
+  r.setWorn(worn);
 
   const weights = shot.weights ?? resolveShapeWeights({ ...DEFAULT_HUMAN_SHAPE, ...(shot.shape ?? {}) }, r.manifest);
   const { unknown } = r.setShape(weights);

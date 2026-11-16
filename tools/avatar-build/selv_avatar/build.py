@@ -16,7 +16,7 @@ from PIL import Image
 
 from . import geom
 from .face import brow_parts, lash_parts
-from .glb import GLB
+from .glb import GLB, USHORT
 from .mhdata import MHData, find_data_root
 from .parts import Material, Part
 from .rig import Rig, blend_weights, build_rig
@@ -57,6 +57,7 @@ class Context:
                 "skirt": lambda: self.group_tris("helper-skirt"),
                 "hairguide": lambda: self.group_tris("helper-hair"),
                 "hair": lambda: np.concatenate([self.head_tris(), self.group_tris("helper-hair")]),
+                "cloth": lambda: self.group_tris("helper-tights", "helper-skirt"),
                 "eye_l": lambda: self.group_tris("helper-l-eye"),
                 "eye_r": lambda: self.group_tris("helper-r-eye"),
             }[name]()
@@ -214,8 +215,10 @@ def emit_part(glb: GLB, ctx: Context, part: Part, materials: dict, skin: int | N
         surf = ctx.surface(part.bind_surface)
         t, bary, _ = surf.closest(part.positions)
         ids = surf.tris[t]
-        custom["_BIND"] = np.concatenate([ids, np.zeros((len(ids), 1))], axis=1).astype(np.float32)
-        custom["_BINDW"] = bary.astype(np.float32)
+        pad = np.zeros((len(ids), 1))
+        custom["_BIND"] = (np.concatenate([ids, pad], axis=1), USHORT, False)
+        w16 = np.clip(np.round(np.clip(bary, 0.0, 1.0) * 65535.0), 0, 65535)
+        custom["_BINDW"] = (np.concatenate([w16, pad], axis=1), USHORT, True)
         if part.skinned:
             joints, weights = blend_weights(rig, ids, bary)
     if weld is not None and part.mhid is None:
@@ -231,7 +234,9 @@ def emit_part(glb: GLB, ctx: Context, part: Part, materials: dict, skin: int | N
         colors = np.concatenate([colors, np.ones((len(colors), 1))], axis=1)
     mesh = glb.mesh(
         part.name, part.positions, part.tris, materials[m.name],
-        normals=welded_normals(part.positions, part.tris, weld),
+        # Surface-bound parts are rebuilt by the runtime, which recomputes their
+        # normals; shipping normals for them would be bytes nobody reads.
+        normals=welded_normals(part.positions, part.tris, weld) if part.mhid is not None else None,
         uvs=part.uvs, colors=colors, joints=joints, weights=weights, custom=custom, targets=targets,
     )
     extras = {"kind": part.kind, "follow": "direct" if part.mhid is not None else "surface",

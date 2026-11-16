@@ -106,6 +106,34 @@ class Measurer:
         )
 
 
+def _relax_delta(mh: MHData, delta: np.ndarray, iterations: int = 12, lam: float = 0.5) -> np.ndarray:
+    """Laplacian-smooth a target's *displacement field* over the mesh.
+
+    MakeHuman's heaviest body carries sculpted folds. At its own weight they
+    are detail; pushed past it - and real people are routinely heavier than
+    MakeHuman's maximum - linear extrapolation turns every fold into a ridge.
+    Smoothing the displacement (not the surface) keeps where the volume goes
+    and drops the creases, so a weight of 2.0 is a bigger body, not a lumpier
+    one. Joint-marker cubes are left alone: they define the skeleton.
+    """
+    b = mh.base
+    keep = np.array([not g.startswith("joint-") for g in b.groups])
+    quads = b.face_v[keep[b.face_group]]
+    e = np.concatenate([quads[:, [0, 1]], quads[:, [1, 2]], quads[:, [2, 3]], quads[:, [3, 0]]])
+    e = np.unique(np.sort(e, axis=1), axis=0)
+    deg = np.zeros(b.n)
+    np.add.at(deg, e[:, 0], 1)
+    np.add.at(deg, e[:, 1], 1)
+    on = deg > 0
+    d = delta.copy()
+    for _ in range(iterations):
+        acc = np.zeros_like(d)
+        np.add.at(acc, e[:, 0], d[e[:, 1]])
+        np.add.at(acc, e[:, 1], d[e[:, 0]])
+        d[on] += lam * (acc[on] / deg[on][:, None] - d[on])
+    return d
+
+
 def _sym(mh: MHData, name: str) -> np.ndarray:
     """Sum of the left and right halves of a per-side detail target."""
     return detail_delta(mh, name.replace("{s}", "l")) + detail_delta(mh, name.replace("{s}", "r"))
@@ -135,7 +163,7 @@ def build_shape_basis(mh: MHData, measurer_factory) -> ShapeBasis:
         m = mac(gender=1.0, **kw) - mac(gender=1.0)
         return (f + m) / 2.0, (m - f) / 2.0
 
-    heavy, heavy_x = gendered({"weight": 1.0})
+    heavy, heavy_x = (_relax_delta(mh, d) for d in gendered({"weight": 1.0}))
     thin, thin_x = gendered({"weight": 0.0})
     toned, toned_x = gendered({"muscle": 1.0})
     soft, soft_x = gendered({"muscle": 0.0})

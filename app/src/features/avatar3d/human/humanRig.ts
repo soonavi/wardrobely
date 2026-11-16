@@ -172,6 +172,25 @@ export function recomputeNormals(geometry: THREE.BufferGeometry, weld: ArrayLike
   normal.needsUpdate = true;
 }
 
+/** Part kinds a wearer chooses between; everything else is always on. */
+export const OPTIONAL_KINDS = ["hair", "brows", "beard", "garment", "base", "accessory"] as const;
+
+/**
+ * Parts whose normals the runtime rebuilds ship without any, and glTF loaders
+ * answer a mesh with no normals by switching its material to flat shading.
+ * Undo that, per material, once.
+ */
+function smoothShade(mesh: THREE.Mesh): void {
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const m of mats) {
+    const std = m as THREE.MeshStandardMaterial;
+    if (std.flatShading) {
+      std.flatShading = false;
+      std.needsUpdate = true;
+    }
+  }
+}
+
 export class HumanRig {
   readonly root: THREE.Object3D;
   readonly manifest: HumanManifest;
@@ -191,6 +210,9 @@ export class HumanRig {
   private readonly frame = new Float32Array(9);
   private weights: ShapeWeights = {};
   private bodyMesh: THREE.Mesh | null = null;
+  private bodyMhid: Uint32Array | null = null;
+  private bodyIndex0: ArrayLike<number> | null = null;
+  private maskKey = "";
 
   /**
    * @param root A glTF scene this rig may mutate. Clone the loader's cached
@@ -213,11 +235,12 @@ export class HumanRig {
 
     let basisSize = 0;
     for (const mesh of meshes) {
-      // Own the geometry: this instance rewrites positions and normals.
-      mesh.geometry = mesh.geometry.clone();
-      const g = mesh.geometry;
-      const mhidAttr = g.getAttribute("_mhid") as THREE.BufferAttribute | undefined;
+      const mhidAttr = mesh.geometry.getAttribute("_mhid") as THREE.BufferAttribute | undefined;
       if (mhidAttr) {
+        // Own the geometry: this instance rewrites positions and normals.
+        // (Bound parts are copied later, on first show - an avatar wears one
+        // hairstyle and a few garments, not all of them.)
+        mesh.geometry = mesh.geometry.clone();
         const mhid = attributeAsUint(mhidAttr, 1);
         for (let i = 0; i < mhid.length; i++) if (mhid[i] + 1 > basisSize) basisSize = mhid[i] + 1;
         this.direct.push({ mesh, mhid });
@@ -226,6 +249,7 @@ export class HumanRig {
       const info = this.partInfo.get(mesh.name);
       if (info && info.visible === false) mesh.visible = false;
       if (mesh.name === "Body") this.bodyMesh = mesh;
+      smoothShade(mesh);
       // Skinned parts are culled against their rest-pose bounds, which a pose
       // or a reshape can leave behind. The avatar is one small object that is
       // always on screen; skipping the test is cheaper than getting it wrong.
@@ -288,39 +312,13 @@ export class HumanRig {
       this.targets.set(name, { index: Uint32Array.from(bucket.index), delta: Float32Array.from(bucket.delta) });
     }
 
-    // Surface-bound parts: record each vertex's offset in its triangle's frame.
     for (const mesh of meshes) {
-      const g = mesh.geometry;
-      const bind = g.getAttribute("_bind") as THREE.BufferAttribute | undefined;
-      const bindW = g.getAttribute("_bindw") as THREE.BufferAttribute | undefined;
-      if (!bind || !bindW) continue;
-      const pos = g.getAttribute("position") as THREE.BufferAttribute;
-      const n = pos.count;
-      const ids = attributeAsUint(bind, 3);
-      const bary = new Float32Array(n * 3);
-      const local = new Float32Array(n * 3);
-      const f = this.frame;
-      const worldOffset = this.partInfo.get(mesh.name)?.offset === "world";
-      for (let i = 0; i < n; i++) {
-        const a = ids[i * 3] * 3, b = ids[i * 3 + 1] * 3, c = ids[i * 3 + 2] * 3;
-        const wa = bindW.getX(i), wb = bindW.getY(i), wc = bindW.getZ(i);
-        bary[i * 3] = wa; bary[i * 3 + 1] = wb; bary[i * 3 + 2] = wc;
-        const p0 = this.basis0;
-        const dx = pos.getX(i) - (wa * p0[a] + wb * p0[b] + wc * p0[c]);
-        const dy = pos.getY(i) - (wa * p0[a + 1] + wb * p0[b + 1] + wc * p0[c + 1]);
-        const dz = pos.getZ(i) - (wa * p0[a + 2] + wb * p0[b + 2] + wc * p0[c + 2]);
-        if (worldOffset) {
-          local[i * 3] = dx; local[i * 3 + 1] = dy; local[i * 3 + 2] = dz;
-          continue;
-        }
-        triangleFrame(p0, a, b, c, f);
-        local[i * 3] = dx * f[0] + dy * f[1] + dz * f[2];
-        local[i * 3 + 1] = dx * f[3] + dy * f[4] + dz * f[5];
-        local[i * 3 + 2] = dx * f[6] + dy * f[7] + dz * f[8];
-      }
-      const weldAttr = g.getAttribute("_weld") as THREE.BufferAttribute | undefined;
-      const weld = weldAttr ? Int32Array.from(attributeAsUint(weldAttr, 1)) : null;
-      this.surface.set(mesh.name, { mesh, ids, bary, local, weld, worldOffset, stale: false });
+      if (mesh.geometry.getAttribute("_bind")) this.pendingSurface.set(mesh.name, mesh);
+    }
+    if (this.bodyMesh) {
+      this.bodyMhid = this.direct.find((d) => d.mesh === this.bodyMesh)?.mhid ?? null;
+      const index = this.bodyMesh.geometry.getIndex();
+      this.bodyIndex0 = index ? Array.from(index.array as ArrayLike<number>) : null;
     }
 
     // Skeleton, in manifest order.
@@ -348,6 +346,63 @@ export class HumanRig {
     }
 
     this.setShape({});
+  }
+
+  private readonly pendingSurface = new Map<string, THREE.Mesh>();
+
+  /**
+   * Bind a hair/garment/eye mesh to the body: record each vertex's offset in
+   * its triangle's frame (or in world axes) against the NEUTRAL body, and take
+   * a private copy of the geometry. Done on first show.
+   */
+  private prepareSurfacePart(name: string): SurfacePart | null {
+    const ready = this.surface.get(name);
+    if (ready) return ready;
+    const mesh = this.pendingSurface.get(name);
+    if (!mesh) return null;
+    this.pendingSurface.delete(name);
+    const shared = mesh.geometry;
+    const bind = shared.getAttribute("_bind") as THREE.BufferAttribute;
+    const bindW = shared.getAttribute("_bindw") as THREE.BufferAttribute;
+    const pos = shared.getAttribute("position") as THREE.BufferAttribute;
+    const n = pos.count;
+    const ids = attributeAsUint(bind, 3);
+    const bary = new Float32Array(n * 3);
+    const local = new Float32Array(n * 3);
+    const f = this.frame;
+    const p0 = this.basis0;
+    const worldOffset = this.partInfo.get(name)?.offset === "world";
+    for (let i = 0; i < n; i++) {
+      const a = ids[i * 3] * 3, b = ids[i * 3 + 1] * 3, c = ids[i * 3 + 2] * 3;
+      // Weights are stored quantised; renormalise so the bound point is exact.
+      let wa = bindW.getX(i), wb = bindW.getY(i), wc = bindW.getZ(i);
+      const sum = wa + wb + wc || 1;
+      wa /= sum; wb /= sum; wc /= sum;
+      bary[i * 3] = wa; bary[i * 3 + 1] = wb; bary[i * 3 + 2] = wc;
+      const dx = pos.getX(i) - (wa * p0[a] + wb * p0[b] + wc * p0[c]);
+      const dy = pos.getY(i) - (wa * p0[a + 1] + wb * p0[b + 1] + wc * p0[c + 1]);
+      const dz = pos.getZ(i) - (wa * p0[a + 2] + wb * p0[b + 2] + wc * p0[c + 2]);
+      if (worldOffset) {
+        local[i * 3] = dx; local[i * 3 + 1] = dy; local[i * 3 + 2] = dz;
+        continue;
+      }
+      triangleFrame(p0, a, b, c, f);
+      local[i * 3] = dx * f[0] + dy * f[1] + dz * f[2];
+      local[i * 3 + 1] = dx * f[3] + dy * f[4] + dz * f[5];
+      local[i * 3 + 2] = dx * f[6] + dy * f[7] + dz * f[8];
+    }
+    const weldAttr = shared.getAttribute("_weld") as THREE.BufferAttribute | undefined;
+    const weld = weldAttr ? Int32Array.from(attributeAsUint(weldAttr, 1)) : null;
+    // Private copy without the binding attributes: they are in typed arrays
+    // now and the GPU has no use for them.
+    const own = shared.clone();
+    own.deleteAttribute("_bind");
+    own.deleteAttribute("_bindw");
+    if (weldAttr) own.deleteAttribute("_weld");
+    mesh.geometry = own;
+    const part: SurfacePart = { mesh, ids, bary, local, weld, worldOffset, stale: true };
+    this.surface.set(name, part);
+    return part;
   }
 
   /** Names of every shape target in the asset. */
@@ -406,6 +461,9 @@ export class HumanRig {
       }
     }
 
+    for (const [name, mesh] of Array.from(this.pendingSurface)) {
+      if (mesh.visible) this.prepareSurfacePart(name);
+    }
     for (const part of this.surface.values()) {
       if (part.mesh.visible) this.rebuildSurfacePart(part);
       else part.stale = true;
@@ -479,7 +537,12 @@ export class HumanRig {
       if (arr[i] < minY) minY = arr[i];
       if (arr[i] > maxY) maxY = arr[i];
     }
-    this.root.position.y = -minY;
+    let sole = 0;
+    for (const [name, mesh] of this.parts) {
+      const s = this.partInfo.get(name)?.sole;
+      if (mesh.visible && typeof s === "number" && s > sole) sole = s;
+    }
+    this.root.position.y = -minY + sole;
     this.statureMetres = maxY - minY;
     this.root.updateMatrixWorld(true);
   }
@@ -491,12 +554,72 @@ export class HumanRig {
   setPartVisible(name: string, visible: boolean): boolean {
     const mesh = this.parts.get(name);
     if (!mesh) return false;
-    if (visible) {
-      const part = this.surface.get(name);
-      if (part && part.stale) this.rebuildSurfacePart(part);
+    if (mesh.visible !== visible) {
+      if (visible) {
+        const part = this.prepareSurfacePart(name);
+        if (part && part.stale) this.rebuildSurfacePart(part);
+      }
+      mesh.visible = visible;
     }
-    mesh.visible = visible;
     return true;
+  }
+
+  /**
+   * Set which optional parts (hair, brows, garments, base layer, accessories)
+   * are worn, in one call. Core parts (body, eyes, lashes) are untouched.
+   * Afterwards the skin under the worn garments is dropped from the body and
+   * the feet are re-grounded on whatever soles are now on.
+   */
+  setWorn(names: Iterable<string>, optionalKinds: readonly string[] = OPTIONAL_KINDS): { missing: string[] } {
+    const want = new Set(names);
+    const missing: string[] = [];
+    for (const name of want) if (!this.parts.has(name)) missing.push(name);
+    for (const [name] of this.parts) {
+      const kind = this.partInfo.get(name)?.kind ?? "";
+      if (!optionalKinds.includes(kind)) continue;
+      this.setPartVisible(name, want.has(name));
+    }
+    this.refreshBodyMask();
+    this.ground();
+    return { missing };
+  }
+
+  /**
+   * Drop the body triangles that sit safely under the visible garments. The
+   * build records, per garment, which body vertices are covered and well back
+   * from every hem; a triangle goes only when all three of its corners are.
+   */
+  refreshBodyMask(): void {
+    const body = this.bodyMesh;
+    if (!body || !this.bodyMhid || !this.bodyIndex0) return;
+    const runs: number[][] = [];
+    const keyParts: string[] = [];
+    for (const [name, mesh] of this.parts) {
+      if (!mesh.visible) continue;
+      const hides = this.partInfo.get(name)?.hides as number[][] | undefined;
+      if (hides && hides.length) {
+        runs.push(...hides);
+        keyParts.push(name);
+      }
+    }
+    const key = keyParts.join("|");
+    if (key === this.maskKey) return;
+    this.maskKey = key;
+    const src = this.bodyIndex0;
+    let out: ArrayLike<number> = src;
+    if (runs.length) {
+      const hidden = new Uint8Array(this.basis0.length / 3);
+      for (const [a, b] of runs) hidden.fill(1, a, b);
+      const mhid = this.bodyMhid;
+      const kept: number[] = [];
+      for (let t = 0; t < src.length; t += 3) {
+        if (hidden[mhid[src[t]]] && hidden[mhid[src[t + 1]]] && hidden[mhid[src[t + 2]]]) continue;
+        kept.push(src[t], src[t + 1], src[t + 2]);
+      }
+      out = kept;
+    }
+    const count = (body.geometry.getAttribute("position") as THREE.BufferAttribute).count;
+    body.geometry.setIndex(new THREE.BufferAttribute(count > 65535 ? Uint32Array.from(out) : Uint16Array.from(out), 1));
   }
 
   /** Names of parts of one kind, in asset order. */
@@ -544,6 +667,7 @@ export class HumanRig {
       if (perPartKinds.includes(kind)) {
         mesh.material = src.clone();
         mesh.material.userData = { ...src.userData };
+        smoothShade(mesh);
       } else {
         let own = shared.get(src);
         if (!own) {
@@ -552,6 +676,7 @@ export class HumanRig {
           shared.set(src, own);
         }
         mesh.material = own;
+        smoothShade(mesh);
       }
     }
   }
